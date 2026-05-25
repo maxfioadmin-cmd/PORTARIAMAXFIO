@@ -456,10 +456,37 @@
     // ============================================================
     // INIT
     // ============================================================
+    // Timeout de segurança: se em 12s nada acontecer, força mostrar erro
+    const timeoutSeguranca = setTimeout(() => {
+        if (document.getElementById("bootLoader").style.display !== "none") {
+            console.warn("Timeout de inicialização - mostrando tela de erro");
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("deniedView").style.display = "block";
+            document.getElementById("app").classList.add("show");
+            const denied = document.querySelector("#deniedView p");
+            if (denied) denied.innerHTML = "Não foi possível carregar suas permissões. Verifique sua conexão e tente <a href='index.html' style='color:var(--info);'>fazer login novamente</a>.";
+        }
+    }, 12000);
+
     (async function init() {
-        const { data: { session } } = await banco.auth.getSession();
-        if (!session) { window.location.href = "index.html"; return; }
-        await verificarPermissao(session.user);
+        try {
+            const { data: { session } } = await banco.auth.getSession();
+            if (!session) {
+                clearTimeout(timeoutSeguranca);
+                window.location.href = "index.html";
+                return;
+            }
+            await verificarPermissao(session.user);
+            clearTimeout(timeoutSeguranca);
+        } catch (e) {
+            console.error("Erro fatal no init:", e);
+            clearTimeout(timeoutSeguranca);
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("deniedView").style.display = "block";
+            document.getElementById("app").classList.add("show");
+            const denied = document.querySelector("#deniedView p");
+            if (denied) denied.textContent = "Erro de inicialização: " + (e.message || e);
+        }
     })();
 
     banco.auth.onAuthStateChange(async (event, session) => {
@@ -468,21 +495,62 @@
     });
 
     async function verificarPermissao(user) {
-        try {
-            const { data: perfil } = await banco.from("perfis_operadores")
-                .select("nome, papel, ativo, deve_trocar_senha").eq("id", user.id).single();
+        // Sempre esconde o bootLoader no final, em qualquer cenário
+        const finalizarBoot = () => {
+            document.getElementById("bootLoader").style.display = "none";
+        };
 
-            if (perfil && perfil.deve_trocar_senha === true) {
-                window.location.href = "trocar-senha.html"; return;
-            }
-            if (!perfil || perfil.ativo === false) {
-                document.getElementById("bootLoader").style.display = "none";
+        try {
+            const { data: perfil, error: perfilErr } = await banco.from("perfis_operadores")
+                .select("nome, papel, ativo, deve_trocar_senha").eq("id", user.id).maybeSingle();
+
+            if (perfilErr) {
+                console.error("Erro ao buscar perfil:", perfilErr);
+                finalizarBoot();
                 document.getElementById("deniedView").style.display = "block";
                 document.getElementById("app").classList.add("show");
+                const denied = document.querySelector("#deniedView p");
+                if (denied) denied.textContent = "Erro ao carregar perfil: " + perfilErr.message;
+                return;
+            }
+
+            // Perfil não existe - tenta criar com defaults
+            if (!perfil) {
+                console.warn("Perfil não encontrado, tentando criar...");
+                const nomeDefault = user.email.split("@")[0];
+                const { error: criarErr } = await banco.from("perfis_operadores").insert({
+                    id: user.id,
+                    nome: nomeDefault,
+                    papel: "OPERADOR",
+                    ativo: true,
+                    deve_trocar_senha: false
+                });
+                if (criarErr) {
+                    finalizarBoot();
+                    document.getElementById("deniedView").style.display = "block";
+                    document.getElementById("app").classList.add("show");
+                    const denied = document.querySelector("#deniedView p");
+                    if (denied) denied.textContent = "Seu usuário não tem perfil. Peça ao administrador para cadastrá-lo.";
+                    return;
+                }
+                // Recarrega após criar
+                window.location.reload();
+                return;
+            }
+
+            if (perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html"; return;
+            }
+            if (perfil.ativo === false) {
+                finalizarBoot();
+                document.getElementById("deniedView").style.display = "block";
+                document.getElementById("app").classList.add("show");
+                const denied = document.querySelector("#deniedView p");
+                if (denied) denied.textContent = "Sua conta está desativada. Contate o administrador.";
                 return;
             }
             if (!["ADMIN", "OPERADOR", "PORTEIRO"].includes(perfil.papel)) {
-                document.getElementById("bootLoader").style.display = "none";
+                finalizarBoot();
                 document.getElementById("deniedView").style.display = "block";
                 document.getElementById("app").classList.add("show");
                 return;
@@ -491,9 +559,9 @@
             papelAtual = perfil.papel;
             usuarioAtual = user;
 
-            document.getElementById("bootLoader").style.display = "none";
+            finalizarBoot();
             document.getElementById("app").classList.add("show");
-            document.getElementById("userNome").textContent = perfil.nome;
+            document.getElementById("userNome").textContent = perfil.nome || user.email.split("@")[0];
             const papelEl = document.getElementById("userPapel");
             papelEl.textContent = perfil.papel;
             papelEl.className = "papel " + perfil.papel;
@@ -510,12 +578,15 @@
                 document.getElementById("navAgendar").style.display = "none";
             }
 
-            await carregarPreferencias();
+            // Carrega preferências - se falhar, não bloqueia a tela
+            await carregarPreferencias().catch(e => console.warn("Preferências falharam:", e));
         } catch (e) {
-            console.error(e);
-            document.getElementById("bootLoader").style.display = "none";
+            console.error("Erro em verificarPermissao:", e);
+            finalizarBoot();
             document.getElementById("deniedView").style.display = "block";
             document.getElementById("app").classList.add("show");
+            const denied = document.querySelector("#deniedView p");
+            if (denied) denied.textContent = "Erro inesperado: " + (e.message || e);
         }
     }
 
@@ -550,29 +621,43 @@
     // PREFERÊNCIAS DO USUÁRIO
     // ============================================================
     async function carregarPreferencias() {
+        // Defaults caso não exista a função/tabela ainda
+        const defaults = {
+            som_alertas: true,
+            volume_alertas: "medio",
+            alertas_visuais: true,
+            auto_refresh_seg: 30,
+            tema: "claro"
+        };
+
         try {
             const { data, error } = await banco.rpc("minhas_preferencias");
-            if (error) throw error;
-            const p = (data && data[0]) || {};
-            preferenciasAtuais = {
-                som_alertas:      p.out_som_alertas !== false,
-                volume_alertas:   p.out_volume_alertas || "medio",
-                alertas_visuais:  p.out_alertas_visuais !== false,
-                auto_refresh_seg: p.out_auto_refresh_seg ?? 30,
-                tema:             p.out_tema || "claro"
-            };
-
-            document.getElementById("prefSomAlertas").checked = preferenciasAtuais.som_alertas;
-            document.getElementById("prefVolume").value = preferenciasAtuais.volume_alertas;
-            document.getElementById("prefAlertasVisuais").checked = preferenciasAtuais.alertas_visuais;
-            document.getElementById("prefAutoRefresh").value = String(preferenciasAtuais.auto_refresh_seg);
-            document.getElementById("prefTema").value = preferenciasAtuais.tema;
-
-            // Aplica tema localmente
-            aplicarTema(preferenciasAtuais.tema);
+            if (error) {
+                console.warn("Função minhas_preferencias indisponível, usando defaults:", error.message);
+                preferenciasAtuais = defaults;
+            } else {
+                const p = (data && data[0]) || {};
+                preferenciasAtuais = {
+                    som_alertas:      p.out_som_alertas !== false,
+                    volume_alertas:   p.out_volume_alertas || "medio",
+                    alertas_visuais:  p.out_alertas_visuais !== false,
+                    auto_refresh_seg: p.out_auto_refresh_seg ?? 30,
+                    tema:             p.out_tema || "claro"
+                };
+            }
         } catch (e) {
-            console.warn("Falha ao carregar preferências:", e);
+            console.warn("Erro ao carregar preferências, usando defaults:", e);
+            preferenciasAtuais = defaults;
         }
+
+        // Aplica nos campos (sempre, mesmo com defaults)
+        document.getElementById("prefSomAlertas").checked = preferenciasAtuais.som_alertas;
+        document.getElementById("prefVolume").value = preferenciasAtuais.volume_alertas;
+        document.getElementById("prefAlertasVisuais").checked = preferenciasAtuais.alertas_visuais;
+        document.getElementById("prefAutoRefresh").value = String(preferenciasAtuais.auto_refresh_seg);
+        document.getElementById("prefTema").value = preferenciasAtuais.tema;
+
+        aplicarTema(preferenciasAtuais.tema);
     }
 
     async function salvarPreferencias() {

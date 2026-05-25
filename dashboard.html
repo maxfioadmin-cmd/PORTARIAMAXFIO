@@ -327,7 +327,7 @@
             const { data: perfil } = await banco
                 .from("perfis_operadores")
                 .select("nome, papel, ativo, deve_trocar_senha")
-                .eq("id", user.id).single();
+                .eq("id", user.id).maybeSingle();
 
             // Se precisa trocar senha, redireciona ANTES de mostrar app
             if (perfil && perfil.deve_trocar_senha === true) {
