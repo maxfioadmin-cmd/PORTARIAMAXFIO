@@ -327,14 +327,33 @@
     // ===== VALIDAR =====
     async function validarToken(token) {
         try {
-            const { data, error } = await banco.rpc("validar_qr", { qr_token: token });
+            const { data, error } = await banco.rpc("validar_qr", { p_qr_token: token });
             if (error) throw error;
 
-            const r = data && data[0];
-            if (!r) {
+            const raw = data && data[0];
+            if (!raw) {
                 mostrarResultado({ sucesso: false, mensagem: "Resposta vazia do servidor.", status_efetivo: "ERRO" });
                 return;
             }
+
+            // Normaliza out_xxx → nomes sem prefixo
+            const r = {
+                sucesso:         raw.out_sucesso,
+                mensagem:        raw.out_mensagem,
+                id_acesso:       raw.out_id_acesso,
+                nome_completo:   raw.out_nome_completo,
+                cpf_rg:          raw.out_cpf_rg,
+                empresa_origem:  raw.out_empresa_origem,
+                setor_visitado:  raw.out_setor_visitado,
+                nivel_seguranca: raw.out_nivel_seguranca,
+                tipo_visitante:  raw.out_tipo_visitante,
+                veiculo_tipo:    raw.out_veiculo_tipo,
+                veiculo_placa:   raw.out_veiculo_placa,
+                veiculo_modelo:  raw.out_veiculo_modelo,
+                veiculo_cor:     raw.out_veiculo_cor,
+                valido_ate:      raw.out_valido_ate,
+                status_efetivo:  raw.out_status_efetivo
+            };
 
             ultimoResultado = r;
             mostrarResultado(r);
