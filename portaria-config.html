@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações · Portaria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c; --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 12px; }
+
+        .frame { max-width: 1000px; margin: 0 auto; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.05); overflow: hidden; }
+
+        header.brand { padding: 18px 24px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        header.brand h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; letter-spacing: -.01em; }
+        header.brand .nav { display: flex; gap: 6px; }
+        header.brand .nav a { color: var(--paper); text-decoration: none; font-size: 11px; padding: 6px 12px; border: 1px solid rgba(247,245,240,.3); border-radius: 3px; opacity: .85; }
+        header.brand .nav a:hover { opacity: 1; background: rgba(255,255,255,.1); }
+
+        .user-bar { padding: 8px 24px; background: var(--paper-warm); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; gap: 8px; }
+        .user-bar .papel { font-weight: 700; padding: 2px 8px; border-radius: 3px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+        .user-bar .papel.ADMIN { background: #fbeeee; color: var(--accent); }
+        .user-bar .papel.OPERADOR { background: #eef2fb; color: var(--info); }
+        .user-bar button { background: none; border: 1px solid var(--line); padding: 4px 12px; font: inherit; font-size: 11px; border-radius: 3px; cursor: pointer; }
+        .user-bar button:hover { background: #fff; }
+
+        /* TABS */
+        .tabs-wrap { background: #fbfaf6; border-bottom: 1px solid var(--line); display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .tab-btn { background: none; border: none; padding: 14px 20px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-soft); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+        .tab-btn:hover { color: var(--ink); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-btn[disabled] { opacity: .35; cursor: not-allowed; }
+
+        .tab-content { display: none; padding: 24px; min-height: 400px; }
+        .tab-content.active { display: block; }
+
+        h2.tab-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px; margin: 0 0 4px; }
+        p.tab-desc { font-size: 13px; color: var(--ink-soft); margin: 0 0 20px; }
+
+        section.card { background: #fbfaf6; border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px; margin-bottom: 18px; }
+        section.card h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 15px; margin: 0 0 4px; }
+        section.card .desc { font-size: 12px; color: var(--ink-soft); margin: 0 0 14px; }
+
+        /* Forms */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+        .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=tel], .field input[type=number], .field select {
+            padding: 10px 12px; font: inherit; font-size: 13px;
+            border: 1px solid var(--line); border-radius: 3px; background: #fff;
+        }
+        .field input:focus, .field select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .field .hint { font-size: 11px; color: var(--ink-soft); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+        .field code { font-family: monospace; font-size: 11px; background: var(--paper-warm); padding: 1px 4px; border-radius: 2px; }
+
+        /* Toggle switch */
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+        .toggle-row:last-child { border-bottom: none; }
+        .toggle-row .label { font-size: 13px; font-weight: 600; }
+        .toggle-row .sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider { position: absolute; cursor: pointer; inset: 0; background: var(--ink-soft); border-radius: 24px; transition: .25s; }
+        .switch .slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .25s; }
+        .switch input:checked + .slider { background: var(--ok); }
+        .switch input:checked + .slider::before { transform: translateX(20px); }
+        .switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+
+        /* Buttons */
+        button.primary {
+            padding: 10px 18px; background: var(--ink); color: var(--paper); border: none;
+            border-radius: 3px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        button.primary:hover:not(:disabled) { background: #000; }
+        button.primary:disabled { opacity: .5; cursor: not-allowed; }
+        button.secondary {
+            padding: 8px 14px; background: #fff; color: var(--ink); border: 1px solid var(--line);
+            border-radius: 3px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+        }
+        button.secondary:hover { background: var(--paper-warm); }
+        button.danger { color: var(--err); border-color: var(--err); }
+        button.danger:hover { background: var(--err); color: #fff; }
+        button.test {
+            padding: 6px 12px; background: var(--info); color: #fff; border: none;
+            border-radius: 3px; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; margin-left: 8px;
+        }
+        button.test:hover { background: #1a4870; }
+
+        .actions-bar { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); margin-top: 12px; }
+
+        /* Status messages */
+        .status { padding: 10px 14px; border-radius: 3px; font-size: 12px; display: none; margin: 12px 0; }
+        .status.show { display: block; }
+        .status.ok { background: #eef6f1; color: var(--ok); border-left: 3px solid var(--ok); }
+        .status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
+        .status.info { background: #eef2fb; color: var(--info); border-left: 3px solid var(--info); }
+
+        /* Tabela de usuários */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table th { background: var(--paper-warm); padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); border-bottom: 1px solid var(--line); }
+        table td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+        table tr:hover { background: #fbfaf6; }
+        .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: .04em; }
+        .pill.ativo { background: #eef6f1; color: var(--ok); }
+        .pill.inativo { background: var(--paper-warm); color: var(--ink-soft); }
+        .pill.warning { background: #fdf6e3; color: var(--warn); margin-left: 6px; }
+        table select { padding: 4px 8px; font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+        .row-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+        .row-actions button { padding: 4px 8px; font: inherit; font-size: 11px; background: #fff; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; font-weight: 600; }
+        .row-actions button:hover { background: var(--paper-warm); }
+
+        /* Cor preview boxes */
+        .cor-row { display: flex; align-items: center; gap: 10px; }
+        .cor-preview { width: 32px; height: 32px; border-radius: 3px; border: 2px solid var(--line); flex-shrink: 0; }
+        .cor-row input[type=color] { width: 50px; height: 36px; padding: 2px; cursor: pointer; }
+
+        /* Loader */
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(247,245,240,.3); border-top-color: var(--paper); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #bootLoader { display: flex; align-items: center; justify-content: center; min-height: 50vh; gap: 10px; color: var(--ink-soft); font-size: 13px; }
+        #bootLoader .spinner { border-color: rgba(26,29,31,.15); border-top-color: var(--ink); }
+
+        #app { display: none; }
+        #app.show { display: block; }
+
+        /* Denied */
+        .denied { padding: 60px 24px; text-align: center; }
+        .denied .icon { font-size: 56px; color: var(--err); margin-bottom: 12px; }
+        .denied h2 { font-family: 'Fraunces', serif; margin: 0 0 6px; }
+
+        /* Form de novo usuário */
+        .novo-usuario-card { background: #eef6f1; border: 1px solid var(--ok); }
+        .novo-usuario-card h3 { color: var(--ok); }
+
+        @media (max-width: 700px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .tab-btn { padding: 12px 14px; font-size: 12px; }
+            .form-grid .full { grid-column: 1; }
+        }
+    </style>
+<link rel="stylesheet" href="tema-escuro.css">
+<script>try{var t=localStorage.getItem("portaria_tema");if(t)document.documentElement.setAttribute("data-tema",t);}catch(e){}</script>
+</head>
+<body>
+
+<div id="bootLoader"><div class="spinner"></div><span>Verificando permissões...</span></div>
+
+<main id="app" class="frame">
+    <header class="brand">
+        <h1>⚙ Configurações</h1>
+        <nav class="nav">
+            <a href="dashboard.html">Início</a>
+            <a href="portaria-painel.html">Painel</a>
+            <a href="portaria-agendamento.html" id="navAgendar">Agendar</a>
+        </nav>
+    </header>
+
+    <div class="user-bar">
+        <span>👤 <strong id="userNome">—</strong> <span class="papel" id="userPapel">—</span></span>
+        <button onclick="logout()">Sair</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-wrap" role="tablist">
+        <button class="tab-btn active" data-tab="preferencias">🔔 Preferências</button>
+        <button class="tab-btn" data-tab="usuarios" id="tabUsuarios">👥 Usuários</button>
+        <button class="tab-btn" data-tab="integracoes" id="tabIntegracoes">🔌 Integrações</button>
+        <button class="tab-btn" data-tab="empresa" id="tabEmpresa">🏢 Empresa</button>
+    </div>
+
+    <!-- ABA: PREFERÊNCIAS (todos veem suas próprias) -->
+    <div class="tab-content active" id="tab-preferencias">
+        <h2 class="tab-title">🔔 Suas preferências</h2>
+        <p class="tab-desc">Preferências individuais salvas no seu perfil. Funcionam em qualquer dispositivo onde você logar.</p>
+
+        <div id="statusPref" class="status"></div>
+
+        <section class="card">
+            <h3>🔊 Alertas no painel</h3>
+            <p class="desc">Sons e notificações visuais quando há novo agendamento ou liberação.</p>
+
+            <div class="toggle-row">
+                <div>
+                    <div class="label">Sons de alerta</div>
+                    <div class="sub">Toca som ao receber novo agendamento (2 bips) ou liberação (acorde)</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="prefSomAlertas">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <div>
+                    <div class="label">Volume dos sons</div>
+                    <div class="sub">Intensidade dos bips de alerta</div>
+                </div>
+                <select id="prefVolume" style="width:auto;padding:8px 12px;">
+                    <option value="baixo">Baixo</option>
+                    <option value="medio">Médio</option>
+                    <option value="alto">Alto</option>
+                </select>
+            </div>
+
+            <div class="toggle-row">
+                <div>
+                    <div class="label">Alertas visuais</div>
+                    <div class="sub">Mostra notificações pop-up no canto da tela</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="prefAlertasVisuais">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div style="padding: 14px 0; border-top: 1px solid var(--line); margin-top: 8px;">
+                <button class="secondary" onclick="testarSons()">🎵 Testar sons</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <h3>⏱ Atualização automática</h3>
+            <p class="desc">Frequência com que o painel busca novos dados (Realtime continua ativo separado disso).</p>
+            <div class="toggle-row">
+                <div>
+                    <div class="label">Auto-refresh do painel</div>
+                    <div class="sub">A cada quanto tempo o painel recarrega a tabela</div>
+                </div>
+                <select id="prefAutoRefresh" style="width:auto;padding:8px 12px;">
+                    <option value="15">15 segundos</option>
+                    <option value="30">30 segundos (padrão)</option>
+                    <option value="60">1 minuto</option>
+                    <option value="0">Apenas manual</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="card">
+            <h3>🎨 Aparência</h3>
+            <p class="desc">Tema visual do sistema. Aplicado em todas as páginas.</p>
+            <div class="toggle-row">
+                <div>
+                    <div class="label">Tema</div>
+                    <div class="sub">Claro (padrão), escuro ou seguir o sistema operacional</div>
+                </div>
+                <select id="prefTema" style="width:auto;padding:8px 12px;">
+                    <option value="claro">☀ Claro</option>
+                    <option value="escuro">🌙 Escuro</option>
+                    <option value="sistema">⚙ Automático</option>
+                </select>
+            </div>
+        </section>
+
+        <div class="actions-bar">
+            <button class="primary" id="btnSalvarPref" onclick="salvarPreferencias()">
+                <span class="spinner" style="display:none;"></span>
+                <span>Salvar preferências</span>
+            </button>
+            <button class="secondary" onclick="restaurarPadroes()">↺ Restaurar padrões</button>
+        </div>
+    </div>
+
+    <!-- ABA: USUÁRIOS (só admin) -->
+    <div class="tab-content" id="tab-usuarios">
+        <h2 class="tab-title">👥 Gestão de operadores</h2>
+        <p class="tab-desc">Cadastre, edite ou desative operadores do sistema.</p>
+
+        <div id="statusUsuarios" class="status"></div>
+
+        <section class="card novo-usuario-card">
+            <h3>+ Cadastrar novo operador</h3>
+            <p class="desc">O operador definirá a senha definitiva no primeiro login.</p>
+            <form id="formNovoUsuario" autocomplete="off">
+                <div class="form-grid">
+                    <div class="field">
+                        <label>Nome completo</label>
+                        <input type="text" id="novoNome" required maxlength="80">
+                    </div>
+                    <div class="field">
+                        <label>E-mail</label>
+                        <input type="email" id="novoEmail" required>
+                    </div>
+                    <div class="field">
+                        <label>Senha provisória</label>
+                        <input type="text" id="novoSenha" required minlength="6">
+                    </div>
+                    <div class="field">
+                        <label>Papel</label>
+                        <select id="novoPapel" required>
+                            <option value="OPERADOR">Operador (cadastra, edita os próprios)</option>
+                            <option value="PORTEIRO">Porteiro (libera entrada/saída)</option>
+                            <option value="ADMIN">Administrador (acesso total)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions-bar">
+                    <button type="submit" class="primary" id="btnCriarUsuario">
+                        <span class="spinner" style="display:none;"></span>
+                        <span>Criar operador</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
+            <h3>Operadores cadastrados</h3>
+            <p class="desc">Ative/desative, mude papel ou force troca de senha.</p>
+            <div id="tabelaUsuarios"></div>
+        </section>
+    </div>
+
+    <!-- ABA: INTEGRAÇÕES (só admin) -->
+    <div class="tab-content" id="tab-integracoes">
+        <h2 class="tab-title">🔌 Integrações externas</h2>
+        <p class="tab-desc">Configure APIs e serviços externos.</p>
+
+        <div id="statusIntegracoes" class="status"></div>
+
+        <section class="card">
+            <h3>🔍 API de consulta de placa</h3>
+            <p class="desc">
+                Provedores recomendados: <code>placas.com.br</code>, <code>WDAPI</code>, <code>BrasilAPI</code>.
+                Use <code>{placa}</code> como placeholder na URL.<br>
+                Exemplo: <code>https://api.exemplo.com/v1/placa/{placa}</code>
+            </p>
+
+            <form id="formPlaca">
+                <div class="form-grid">
+                    <div class="field full">
+                        <label>URL da API <span class="hint">(deve conter {placa})</span></label>
+                        <input type="text" id="placaUrl" placeholder="https://api.exemplo.com/v1/{placa}">
+                    </div>
+                    <div class="field">
+                        <label>Nome do header</label>
+                        <input type="text" id="placaHeader" placeholder="Authorization" value="Authorization">
+                    </div>
+                    <div class="field">
+                        <label>Token / Chave</label>
+                        <input type="text" id="placaToken" placeholder="Bearer xxxxx">
+                    </div>
+                </div>
+
+                <div class="toggle-row" style="border-top: 1px solid var(--line); margin-top: 12px; padding-top: 14px;">
+                    <div>
+                        <div class="label">Ativar consulta automática</div>
+                        <div class="sub">Quando ligado, aparece o botão "🔍 Consultar" ao lado da placa no formulário</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="placaAtiva">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="actions-bar">
+                    <button type="submit" class="primary" id="btnSalvarPlaca">
+                        <span class="spinner" style="display:none;"></span>
+                        <span>Salvar integração</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <!-- ABA: EMPRESA (só admin) -->
+    <div class="tab-content" id="tab-empresa">
+        <h2 class="tab-title">🏢 Dados da empresa</h2>
+        <p class="tab-desc">Informações usadas nas credenciais, e-mails e WhatsApp dos visitantes.</p>
+
+        <div id="statusEmpresa" class="status"></div>
+
+        <section class="card">
+            <h3>Endereço da unidade</h3>
+            <p class="desc">Exibido no QR Code público e nas mensagens enviadas aos visitantes.</p>
+
+            <form id="formEmpresa">
+                <div class="form-grid">
+                    <div class="field full">
+                        <label>Nome da unidade</label>
+                        <input type="text" id="empresaNome" placeholder="Unidade Industrial / Galpão (CIC)">
+                    </div>
+                    <div class="field full">
+                        <label>Rua e número</label>
+                        <input type="text" id="empresaRua" placeholder="R. Exemplo, 123">
+                    </div>
+                    <div class="field">
+                        <label>Bairro</label>
+                        <input type="text" id="empresaBairro" placeholder="Centro">
+                    </div>
+                    <div class="field">
+                        <label>Cidade / UF</label>
+                        <input type="text" id="empresaCidade" placeholder="Curitiba - PR">
+                    </div>
+                    <div class="field">
+                        <label>CEP</label>
+                        <input type="text" id="empresaCep" placeholder="00000-000">
+                    </div>
+                    <div class="field">
+                        <label>Telefone de contato</label>
+                        <input type="tel" id="empresaTelefone" placeholder="(41) 3000-0000">
+                    </div>
+                </div>
+
+                <div class="actions-bar">
+                    <button type="submit" class="primary" id="btnSalvarEmpresa">
+                        <span class="spinner" style="display:none;"></span>
+                        <span>Salvar dados da empresa</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
+            <h3>ℹ Sobre a edição da empresa</h3>
+            <p class="desc">
+                Quando você altera o endereço aqui, ele passa a valer automaticamente para:
+                <br>• Página pública de credencial (que o visitante abre pelo link)
+                <br>• Mensagens de WhatsApp enviadas aos visitantes
+                <br>• E-mails enviados pela Edge Function
+                <br>• Ticket de impressão pós-cadastro
+            </p>
+        </section>
+    </div>
+
+    <!-- ACESSO NEGADO -->
+    <div class="denied" id="deniedView" style="display:none;">
+        <div class="icon">⊘</div>
+        <h2>Acesso negado</h2>
+        <p>Você não tem permissão para acessar configurações.</p>
+        <a href="dashboard.html" style="color:var(--info);">← Voltar para o início</a>
+    </div>
+</main>
+
+<script>
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    let papelAtual = null;
+    let usuarioAtual = null;
+    let preferenciasAtuais = null;
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    (async function init() {
+        const { data: { session } } = await banco.auth.getSession();
+        if (!session) { window.location.href = "index.html"; return; }
+        await verificarPermissao(session.user);
+    })();
+
+    banco.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_OUT") window.location.href = "index.html";
+        if (event === "SIGNED_IN" && session) await verificarPermissao(session.user);
+    });
+
+    async function verificarPermissao(user) {
+        try {
+            const { data: perfil } = await banco.from("perfis_operadores")
+                .select("nome, papel, ativo, deve_trocar_senha").eq("id", user.id).single();
+
+            if (perfil && perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html"; return;
+            }
+            if (!perfil || perfil.ativo === false) {
+                document.getElementById("bootLoader").style.display = "none";
+                document.getElementById("deniedView").style.display = "block";
+                document.getElementById("app").classList.add("show");
+                return;
+            }
+            if (!["ADMIN", "OPERADOR", "PORTEIRO"].includes(perfil.papel)) {
+                document.getElementById("bootLoader").style.display = "none";
+                document.getElementById("deniedView").style.display = "block";
+                document.getElementById("app").classList.add("show");
+                return;
+            }
+
+            papelAtual = perfil.papel;
+            usuarioAtual = user;
+
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("app").classList.add("show");
+            document.getElementById("userNome").textContent = perfil.nome;
+            const papelEl = document.getElementById("userPapel");
+            papelEl.textContent = perfil.papel;
+            papelEl.className = "papel " + perfil.papel;
+
+            // Esconde abas que o papel não pode ver
+            if (perfil.papel !== "ADMIN") {
+                document.getElementById("tabUsuarios").setAttribute("disabled", "true");
+                document.getElementById("tabIntegracoes").setAttribute("disabled", "true");
+                document.getElementById("tabEmpresa").setAttribute("disabled", "true");
+            }
+
+            // Esconde "Agendar" no nav para porteiro
+            if (perfil.papel === "PORTEIRO") {
+                document.getElementById("navAgendar").style.display = "none";
+            }
+
+            await carregarPreferencias();
+        } catch (e) {
+            console.error(e);
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("deniedView").style.display = "block";
+            document.getElementById("app").classList.add("show");
+        }
+    }
+
+    async function logout() {
+        if (!confirm("Deseja sair?")) return;
+        await banco.auth.signOut();
+    }
+
+    // ============================================================
+    // ABAS
+    // ============================================================
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            if (btn.hasAttribute("disabled")) {
+                alert("Esta seção é restrita a administradores.");
+                return;
+            }
+            const tab = btn.dataset.tab;
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById("tab-" + tab).classList.add("active");
+
+            // Carrega dados específicos da aba ao abrir
+            if (tab === "usuarios" && papelAtual === "ADMIN") carregarUsuarios();
+            if (tab === "integracoes" && papelAtual === "ADMIN") carregarIntegracoes();
+            if (tab === "empresa" && papelAtual === "ADMIN") carregarEmpresa();
+        });
+    });
+
+    // ============================================================
+    // PREFERÊNCIAS DO USUÁRIO
+    // ============================================================
+    async function carregarPreferencias() {
+        try {
+            const { data, error } = await banco.rpc("minhas_preferencias");
+            if (error) throw error;
+            const p = (data && data[0]) || {};
+            preferenciasAtuais = {
+                som_alertas:      p.out_som_alertas !== false,
+                volume_alertas:   p.out_volume_alertas || "medio",
+                alertas_visuais:  p.out_alertas_visuais !== false,
+                auto_refresh_seg: p.out_auto_refresh_seg ?? 30,
+                tema:             p.out_tema || "claro"
+            };
+
+            document.getElementById("prefSomAlertas").checked = preferenciasAtuais.som_alertas;
+            document.getElementById("prefVolume").value = preferenciasAtuais.volume_alertas;
+            document.getElementById("prefAlertasVisuais").checked = preferenciasAtuais.alertas_visuais;
+            document.getElementById("prefAutoRefresh").value = String(preferenciasAtuais.auto_refresh_seg);
+            document.getElementById("prefTema").value = preferenciasAtuais.tema;
+
+            // Aplica tema localmente
+            aplicarTema(preferenciasAtuais.tema);
+        } catch (e) {
+            console.warn("Falha ao carregar preferências:", e);
+        }
+    }
+
+    async function salvarPreferencias() {
+        const btn = document.getElementById("btnSalvarPref");
+        const st = document.getElementById("statusPref");
+        btn.querySelector(".spinner").style.display = "block";
+        btn.disabled = true;
+
+        try {
+            const novo = {
+                id_usuario:       usuarioAtual.id,
+                som_alertas:      document.getElementById("prefSomAlertas").checked,
+                volume_alertas:   document.getElementById("prefVolume").value,
+                alertas_visuais:  document.getElementById("prefAlertasVisuais").checked,
+                auto_refresh_seg: parseInt(document.getElementById("prefAutoRefresh").value),
+                tema:             document.getElementById("prefTema").value
+            };
+
+            const { error } = await banco.from("preferencias_usuario").upsert(novo);
+            if (error) throw error;
+
+            preferenciasAtuais = novo;
+            aplicarTema(novo.tema);
+
+            st.className = "status show ok";
+            st.textContent = "✓ Preferências salvas. As mudanças aplicam-se imediatamente em todas as páginas que você abrir.";
+            setTimeout(() => { st.className = "status"; }, 4000);
+        } catch (e) {
+            console.error(e);
+            st.className = "status show err";
+            st.textContent = "Erro ao salvar: " + (e.message || e);
+        } finally {
+            btn.querySelector(".spinner").style.display = "none";
+            btn.disabled = false;
+        }
+    }
+
+    function restaurarPadroes() {
+        if (!confirm("Restaurar todas as preferências aos valores padrão?")) return;
+        document.getElementById("prefSomAlertas").checked = true;
+        document.getElementById("prefVolume").value = "medio";
+        document.getElementById("prefAlertasVisuais").checked = true;
+        document.getElementById("prefAutoRefresh").value = "30";
+        document.getElementById("prefTema").value = "claro";
+    }
+
+    function aplicarTema(tema) {
+        let efetivo = tema;
+        if (tema === "sistema") {
+            efetivo = window.matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro";
+        }
+        document.documentElement.setAttribute("data-tema", efetivo);
+        try { localStorage.setItem("portaria_tema", efetivo); } catch(e) {}
+    }
+
+    function testarSons() {
+        const vol = document.getElementById("prefVolume").value;
+        const volMap = { baixo: 0.08, medio: 0.18, alto: 0.32 };
+        const v = volMap[vol] || 0.18;
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // Bip 1
+        bipar(ctx, 880, 0, 0.15, v);
+        bipar(ctx, 1320, 0.18, 0.15, v);
+        // Pausa, depois acorde
+        setTimeout(() => {
+            bipar(ctx, 523, 0, 0.12, v);
+            bipar(ctx, 659, 0.12, 0.12, v);
+            bipar(ctx, 784, 0.24, 0.18, v);
+        }, 700);
+    }
+
+    function bipar(ctx, freq, delay, duracao, volume) {
+        const t = ctx.currentTime + delay;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = "sine";
+        osc.connect(gain); gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(volume, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duracao);
+        osc.start(t); osc.stop(t + duracao + 0.05);
+    }
+
+    // ============================================================
+    // USUÁRIOS (só ADMIN)
+    // ============================================================
+    async function carregarUsuarios() {
+        const cont = document.getElementById("tabelaUsuarios");
+        cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">Carregando...</div>';
+        try {
+            const { data, error } = await banco.from("vw_operadores").select("*").order("nome");
+            if (error) throw error;
+
+            if (!data.length) {
+                cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-soft);">Nenhum operador cadastrado.</div>';
+                return;
+            }
+
+            const linhas = data.map(op => {
+                const ultimoAcesso = op.last_sign_in_at
+                    ? new Date(op.last_sign_in_at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })
+                    : "Nunca";
+                const senhaPendente = op.deve_trocar_senha
+                    ? '<span class="pill warning">🔐 Trocar senha</span>' : '';
+                return `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">${escapeHtml(op.nome)}${senhaPendente}</div>
+                            <div style="font-size:11px;color:var(--ink-soft);">${escapeHtml(op.email)}</div>
+                        </td>
+                        <td>
+                            <select onchange="alterarPapel('${op.id}', this.value)">
+                                <option value="OPERADOR" ${op.papel==="OPERADOR"?"selected":""}>Operador</option>
+                                <option value="PORTEIRO" ${op.papel==="PORTEIRO"?"selected":""}>Porteiro</option>
+                                <option value="ADMIN" ${op.papel==="ADMIN"?"selected":""}>Admin</option>
+                            </select>
+                        </td>
+                        <td><span class="pill ${op.ativo?"ativo":"inativo"}">${op.ativo?"Ativo":"Inativo"}</span></td>
+                        <td style="font-size:11px;color:var(--ink-soft);">${ultimoAcesso}</td>
+                        <td>
+                            <div class="row-actions">
+                                <button onclick="alternarAtivo('${op.id}', ${!op.ativo})">${op.ativo?"Desativar":"Ativar"}</button>
+                                <button onclick="forcarTrocaSenha('${op.id}', '${escapeHtml(op.nome).replace(/'/g,"\\'")}')">🔐 Trocar senha</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+
+            cont.innerHTML = `
+                <table>
+                    <thead><tr>
+                        <th>Operador</th><th>Papel</th><th>Status</th><th>Último acesso</th><th>Ações</th>
+                    </tr></thead>
+                    <tbody>${linhas}</tbody>
+                </table>
+            `;
+        } catch (e) {
+            cont.innerHTML = `<div style="color:var(--err);padding:20px;">Erro: ${escapeHtml(e.message || "")}</div>`;
+        }
+    }
+
+    document.getElementById("formNovoUsuario").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("btnCriarUsuario");
+        const st = document.getElementById("statusUsuarios");
+        const nome = document.getElementById("novoNome").value.trim();
+        const email = document.getElementById("novoEmail").value.trim().toLowerCase();
+        const senha = document.getElementById("novoSenha").value;
+        const papel = document.getElementById("novoPapel").value;
+
+        if (!nome || !email || !senha) {
+            st.className = "status show err"; st.textContent = "Preencha todos os campos.";
+            return;
+        }
+        if (senha.length < 6) {
+            st.className = "status show err"; st.textContent = "Senha provisória deve ter ao menos 6 caracteres.";
+            return;
+        }
+
+        btn.querySelector(".spinner").style.display = "block";
+        btn.disabled = true;
+        try {
+            // Cria usuário via signUp (anon)
+            const { data, error } = await banco.auth.signUp({
+                email, password: senha,
+                options: { data: { nome, papel } }
+            });
+            if (error) throw error;
+            if (!data.user) throw new Error("Usuário não foi criado.");
+
+            // Atualiza/insere perfil (o trigger pode já ter criado)
+            await banco.from("perfis_operadores").upsert({
+                id: data.user.id, nome, papel,
+                ativo: true, deve_trocar_senha: true
+            });
+
+            st.className = "status show ok";
+            st.textContent = `✓ Operador "${nome}" criado. Senha provisória: "${senha}". Ele deverá trocá-la no primeiro login.`;
+            document.getElementById("formNovoUsuario").reset();
+            await carregarUsuarios();
+        } catch (e) {
+            st.className = "status show err";
+            st.textContent = "Erro: " + (e.message || JSON.stringify(e));
+        } finally {
+            btn.querySelector(".spinner").style.display = "none";
+            btn.disabled = false;
+        }
+    });
+
+    async function alterarPapel(id, novoPapel) {
+        if (!confirm(`Confirma alterar o papel para ${novoPapel}?`)) { carregarUsuarios(); return; }
+        try {
+            const { error } = await banco.from("perfis_operadores").update({ papel: novoPapel }).eq("id", id);
+            if (error) throw error;
+            mostrarStatusUsuarios("Papel atualizado.", "ok");
+            await carregarUsuarios();
+        } catch (e) { mostrarStatusUsuarios("Erro: " + e.message, "err"); }
+    }
+
+    async function alternarAtivo(id, novoAtivo) {
+        if (!confirm(`${novoAtivo ? "Ativar" : "Desativar"} este operador?`)) return;
+        try {
+            const { error } = await banco.from("perfis_operadores").update({ ativo: novoAtivo }).eq("id", id);
+            if (error) throw error;
+            mostrarStatusUsuarios(novoAtivo ? "Operador ativado." : "Operador desativado.", "ok");
+            await carregarUsuarios();
+        } catch (e) { mostrarStatusUsuarios("Erro: " + e.message, "err"); }
+    }
+
+    async function forcarTrocaSenha(id, nome) {
+        if (!confirm(`Forçar ${nome} a trocar a senha no próximo login?`)) return;
+        try {
+            const { error } = await banco.from("perfis_operadores")
+                .update({ deve_trocar_senha: true }).eq("id", id);
+            if (error) throw error;
+            mostrarStatusUsuarios(nome + " precisará trocar a senha no próximo login.", "ok");
+            await carregarUsuarios();
+        } catch (e) { mostrarStatusUsuarios("Erro: " + e.message, "err"); }
+    }
+
+    function mostrarStatusUsuarios(msg, tipo) {
+        const st = document.getElementById("statusUsuarios");
+        st.className = `status show ${tipo}`;
+        st.textContent = msg;
+        setTimeout(() => { st.className = "status"; }, 3500);
+    }
+
+    // ============================================================
+    // INTEGRAÇÕES (só ADMIN)
+    // ============================================================
+    async function carregarIntegracoes() {
+        try {
+            const { data } = await banco.from("config_sistema").select("chave, valor").like("chave", "api_placa_%");
+            const map = {}; (data || []).forEach(r => map[r.chave] = r.valor);
+            document.getElementById("placaUrl").value = map.api_placa_url || "";
+            document.getElementById("placaHeader").value = map.api_placa_header || "Authorization";
+            document.getElementById("placaToken").value = map.api_placa_token || "";
+            document.getElementById("placaAtiva").checked = map.api_placa_ativa === "true";
+        } catch (e) { console.warn(e); }
+    }
+
+    document.getElementById("formPlaca").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("btnSalvarPlaca");
+        const st = document.getElementById("statusIntegracoes");
+        const url = document.getElementById("placaUrl").value.trim();
+        const header = document.getElementById("placaHeader").value.trim() || "Authorization";
+        const token = document.getElementById("placaToken").value.trim();
+        const ativa = document.getElementById("placaAtiva").checked;
+
+        if (ativa && (!url || !url.includes("{placa}"))) {
+            st.className = "status show err";
+            st.textContent = "Para ativar, informe URL contendo {placa}.";
+            return;
+        }
+        btn.querySelector(".spinner").style.display = "block"; btn.disabled = true;
+        try {
+            const itens = [
+                { chave: "api_placa_url", valor: url },
+                { chave: "api_placa_header", valor: header },
+                { chave: "api_placa_token", valor: token },
+                { chave: "api_placa_ativa", valor: ativa ? "true" : "false" }
+            ];
+            for (const it of itens) {
+                const { error } = await banco.from("config_sistema")
+                    .update({ valor: it.valor, atualizado_em: new Date().toISOString() })
+                    .eq("chave", it.chave);
+                if (error) throw error;
+            }
+            st.className = "status show ok";
+            st.textContent = "✓ Integração salva. Operadores devem recarregar para ver mudanças.";
+            setTimeout(() => { st.className = "status"; }, 4000);
+        } catch (e) {
+            st.className = "status show err";
+            st.textContent = "Erro: " + (e.message || JSON.stringify(e));
+        } finally {
+            btn.querySelector(".spinner").style.display = "none";
+            btn.disabled = false;
+        }
+    });
+
+    // ============================================================
+    // EMPRESA (só ADMIN)
+    // ============================================================
+    async function carregarEmpresa() {
+        try {
+            const { data } = await banco.from("config_sistema").select("chave, valor").like("chave", "empresa_%");
+            const map = {}; (data || []).forEach(r => map[r.chave] = r.valor);
+            document.getElementById("empresaNome").value = map.empresa_nome || "";
+            document.getElementById("empresaRua").value = map.empresa_rua || "";
+            document.getElementById("empresaBairro").value = map.empresa_bairro || "";
+            document.getElementById("empresaCidade").value = map.empresa_cidade || "";
+            document.getElementById("empresaCep").value = map.empresa_cep || "";
+            document.getElementById("empresaTelefone").value = map.empresa_telefone || "";
+        } catch (e) { console.warn(e); }
+    }
+
+    document.getElementById("formEmpresa").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("btnSalvarEmpresa");
+        const st = document.getElementById("statusEmpresa");
+        btn.querySelector(".spinner").style.display = "block"; btn.disabled = true;
+        try {
+            const itens = [
+                { chave: "empresa_nome", valor: document.getElementById("empresaNome").value.trim() },
+                { chave: "empresa_rua", valor: document.getElementById("empresaRua").value.trim() },
+                { chave: "empresa_bairro", valor: document.getElementById("empresaBairro").value.trim() },
+                { chave: "empresa_cidade", valor: document.getElementById("empresaCidade").value.trim() },
+                { chave: "empresa_cep", valor: document.getElementById("empresaCep").value.trim() },
+                { chave: "empresa_telefone", valor: document.getElementById("empresaTelefone").value.trim() }
+            ];
+            for (const it of itens) {
+                const { error } = await banco.from("config_sistema")
+                    .update({ valor: it.valor, atualizado_em: new Date().toISOString() })
+                    .eq("chave", it.chave);
+                if (error) throw error;
+            }
+            st.className = "status show ok";
+            st.textContent = "✓ Dados da empresa salvos.";
+            setTimeout(() => { st.className = "status"; }, 4000);
+        } catch (e) {
+            st.className = "status show err";
+            st.textContent = "Erro: " + (e.message || JSON.stringify(e));
+        } finally {
+            btn.querySelector(".spinner").style.display = "none";
+            btn.disabled = false;
+        }
+    });
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+</script>
+</body>
+</html>

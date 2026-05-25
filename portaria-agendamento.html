@@ -88,6 +88,36 @@
         .send-status.ok { background: #eef6f1; color: var(--ok); border-left: 3px solid var(--ok); }
         .send-status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
 
+        /* Níveis de segurança com cores */
+        .nivel-select.nivel-1 { background-color: #eef6f1; border-color: var(--ok); color: var(--ok); font-weight: 600; }
+        .nivel-select.nivel-2 { background-color: #fdf6e3; border-color: var(--warn); color: var(--warn); font-weight: 600; }
+        .nivel-select.nivel-3 { background-color: #fbeeee; border-color: var(--err); color: var(--err); font-weight: 600; }
+
+        /* Botão consulta de placa */
+        .placa-wrap { position: relative; }
+        .placa-wrap input { padding-right: 90px; }
+        .btn-consulta-placa {
+            position: absolute;
+            right: 4px; top: 4px; bottom: 4px;
+            padding: 0 12px;
+            background: var(--info);
+            color: #fff;
+            border: none;
+            border-radius: 2px;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-consulta-placa:hover { background: #1a4870; }
+        .btn-consulta-placa:disabled { opacity: .5; cursor: not-allowed; background: var(--ink-soft); }
+        .placa-loading { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+        .btn-consulta-placa.loading .placa-loading { display: block; }
+        .btn-consulta-placa.loading .placa-text { display: none; }
+
         /* Normas de segurança */
         .normas { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 11px; color: var(--ink-soft); line-height: 1.55; }
         .normas h4 { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
@@ -136,39 +166,12 @@
             .ticket { border: 1px solid #000; margin: 0; }
         }
     </style>
+<link rel="stylesheet" href="tema-escuro.css">
+<script>try{var t=localStorage.getItem("portaria_tema");if(t)document.documentElement.setAttribute("data-tema",t);}catch(e){}</script>
 </head>
 <body>
 
 <div id="bootLoader"><div class="spinner"></div><span>Verificando sessão...</span></div>
-
-<!-- LOGIN -->
-<div id="loginView" class="login-wrap">
-    <div class="login-card">
-        <div class="login-header">
-            <div class="login-icon">P</div>
-            <h2>Acesso de Operador</h2>
-            <div class="sub">Sistema de Controle de Portaria</div>
-        </div>
-        <div class="login-body">
-            <form id="formLogin" autocomplete="off" novalidate>
-                <div class="field">
-                    <label for="loginEmail">E-mail corporativo</label>
-                    <input type="email" id="loginEmail" autocomplete="username" required>
-                </div>
-                <div class="field">
-                    <label for="loginSenha">Senha</label>
-                    <input type="password" id="loginSenha" autocomplete="current-password" required>
-                </div>
-                <button type="submit" class="primary" id="btnLogin">
-                    <span class="spinner"></span>
-                    <span class="label">Entrar</span>
-                </button>
-                <div id="loginStatus" class="status" style="margin: 16px 0 0;"></div>
-            </form>
-        </div>
-        <footer class="foot">Uso restrito · Acesso monitorado</footer>
-    </div>
-</div>
 
 <!-- APP -->
 <main id="app" class="frame">
@@ -176,11 +179,11 @@
         <p class="eyebrow">Controle de Portaria</p>
         <h1>Novo agendamento de visita</h1>
         <nav class="nav-links">
-            <a href="index.html">Início</a>
+            <a href="dashboard.html">Início</a>
             <a href="portaria-agendamento.html" class="active">Agendar</a>
             <a href="portaria-painel.html">Painel</a>
             <a href="portaria-scanner.html">📷 Scanner</a>
-            <a href="portaria-admin.html" id="linkAdmin" style="display:none;">Admin</a>
+            <a href="portaria-config.html" id="linkConfig">⚙ Config</a>
         </nav>
         <div class="meta">
             <span><span class="dot"></span>Operacional</span>
@@ -248,10 +251,10 @@
         <div class="field-group">
             <div class="field">
                 <label for="seguranca">Nível de segurança</label>
-                <select id="seguranca">
-                    <option value="1">1 · Operacional</option>
-                    <option value="2">2 · Restrito</option>
-                    <option value="3">3 · Crítico</option>
+                <select id="seguranca" class="nivel-select nivel-1">
+                    <option value="1">🟢 1 · Operacional</option>
+                    <option value="2">🟡 2 · Restrito</option>
+                    <option value="3">🔴 3 · Crítico</option>
                 </select>
             </div>
             <div class="field">
@@ -259,6 +262,18 @@
                 <input type="datetime-local" id="validade" required>
                 <div class="err-text" data-for="validade">Data inválida.</div>
             </div>
+        </div>
+
+        <!-- DOCA: aparece só quando tipo = TRANSPORTADORA ou CLIENTE -->
+        <div class="field full" id="campoDocaWrap" style="display:none;">
+            <label for="doca">🚪 DOCA / Portão de acesso<span class="req">*</span></label>
+            <select id="doca">
+                <option value="">Selecione...</option>
+                <option value="1">DOCA 1 — Portão Frontal (Anexo 2)</option>
+                <option value="2">DOCA 2 — Portão Fundos (Anexo 2)</option>
+                <option value="3">DOCA 3 — Portão Lateral (Anexo 1)</option>
+            </select>
+            <div class="err-text" data-for="doca">Selecione a DOCA para transportadoras e clientes.</div>
         </div>
 
         <fieldset style="border: 1px solid var(--line); border-radius: 3px; padding: 14px 16px 0; margin-bottom: 8px;">
@@ -279,7 +294,13 @@
                 </div>
                 <div class="field">
                     <label for="veiculoPlaca">Placa<span class="hint">ABC-1234 ou ABC1D23</span></label>
-                    <input type="text" id="veiculoPlaca" maxlength="8" placeholder="ABC1D23" style="text-transform: uppercase;">
+                    <div class="placa-wrap">
+                        <input type="text" id="veiculoPlaca" maxlength="8" placeholder="ABC1D23" style="text-transform: uppercase;">
+                        <button type="button" class="btn-consulta-placa" id="btnConsultarPlaca" onclick="consultarPlaca()" style="display:none;" title="Consultar dados da placa">
+                            <span class="placa-loading"></span>
+                            <span class="placa-text">🔍 Consultar</span>
+                        </button>
+                    </div>
                     <div class="err-text" data-for="veiculoPlaca">Placa inválida.</div>
                 </div>
             </div>
@@ -440,18 +461,14 @@
 
     banco.auth.onAuthStateChange((event, session) => {
         if (event === "SIGNED_IN" && session) mostrarApp(session.user);
-        if (event === "SIGNED_OUT") mostrarLogin();
+        if (event === "SIGNED_OUT") window.location.href = "index.html";
     });
 
     function mostrarLogin() {
-        document.getElementById("bootLoader").style.display = "none";
-        document.getElementById("app").classList.remove("show");
-        document.getElementById("loginView").classList.add("show");
-        document.getElementById("loginEmail").focus();
+        window.location.href = "index.html";
     }
 
     async function mostrarApp(user) {
-        // Verifica troca de senha PRIMEIRO
         try {
             const { data: perfil } = await banco
                 .from("perfis_operadores").select("papel, ativo, deve_trocar_senha").eq("id", user.id).single();
@@ -466,50 +483,32 @@
                 return;
             }
 
+            // PORTEIRO não pode cadastrar agendamento — redireciona pro painel
+            if (perfil && perfil.papel === "PORTEIRO") {
+                alert("Porteiros não cadastram agendamentos. Redirecionando para o painel.");
+                window.location.href = "portaria-painel.html";
+                return;
+            }
+
             document.getElementById("bootLoader").style.display = "none";
-            document.getElementById("loginView").classList.remove("show");
             document.getElementById("app").classList.add("show");
             document.getElementById("userEmail").textContent = user.email;
 
-            if (perfil && perfil.papel === "ADMIN") {
-                document.getElementById("linkAdmin").style.display = "inline-block";
-            }
+            // Link "Config" sempre visível para ADMIN e OPERADOR (porteiro nem chega aqui)
+
+            // Carrega config de API de placa
+            await carregarConfigPlaca();
         } catch (e) {
             console.log("Perfil não encontrado", e);
             document.getElementById("bootLoader").style.display = "none";
-            document.getElementById("loginView").classList.remove("show");
             document.getElementById("app").classList.add("show");
             document.getElementById("userEmail").textContent = user.email;
         }
     }
 
-    // ============================================================
-    // LOGIN / LOGOUT
-    // ============================================================
-    document.getElementById("formLogin").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("loginEmail").value.trim();
-        const senha = document.getElementById("loginSenha").value;
-        const btn = document.getElementById("btnLogin");
-        const st = document.getElementById("loginStatus");
-        if (!email || !senha) { st.className = "status show err"; st.textContent = "Informe e-mail e senha."; return; }
-        btn.disabled = true; btn.classList.add("loading"); st.className = "status";
-        try {
-            const { error } = await banco.auth.signInWithPassword({ email, password: senha });
-            if (error) throw error;
-        } catch (error) {
-            const msg = error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message;
-            st.className = "status show err"; st.textContent = msg;
-        } finally {
-            btn.disabled = false; btn.classList.remove("loading");
-        }
-    });
-
     async function logout() {
         if (!confirm("Deseja realmente sair?")) return;
         await banco.auth.signOut();
-        document.getElementById("formLogin").reset();
-        novoAgendamento();
     }
 
     // ============================================================
@@ -597,8 +596,123 @@
             document.getElementById("veiculoModelo").value = "";
             document.getElementById("veiculoCor").value = "";
             setError("veiculoPlaca", false);
+            document.getElementById("btnConsultarPlaca").style.display = "none";
+        } else if (configPlaca.ativa) {
+            // Mostra botão consultar se houver placa
+            const placa = document.getElementById("veiculoPlaca").value.trim();
+            if (placa.length === 7) document.getElementById("btnConsultarPlaca").style.display = "flex";
         }
     });
+
+    // Cores dinâmicas para nível de segurança
+    document.getElementById("seguranca").addEventListener("change", (e) => {
+        e.target.className = "nivel-select nivel-" + e.target.value;
+    });
+
+    // DOCA: aparece para TRANSPORTADORA e CLIENTE
+    document.getElementById("tipo").addEventListener("change", (e) => {
+        const tipo = e.target.value;
+        const docaWrap = document.getElementById("campoDocaWrap");
+        if (tipo === "TRANSPORTADORA" || tipo === "CLIENTE") {
+            docaWrap.style.display = "block";
+        } else {
+            docaWrap.style.display = "none";
+            document.getElementById("doca").value = "";
+            setError("doca", false);
+        }
+    });
+
+    document.getElementById("doca").addEventListener("change", () => setError("doca", false));
+
+    // Mostra botão consultar placa quando ficar com 7 chars (e config ativa)
+    document.getElementById("veiculoPlaca").addEventListener("input", function() {
+        if (configPlaca.ativa && this.value.length === 7 && validarPlaca(this.value)) {
+            document.getElementById("btnConsultarPlaca").style.display = "flex";
+        } else {
+            document.getElementById("btnConsultarPlaca").style.display = "none";
+        }
+    });
+
+    // ============================================================
+    // CONSULTA DE PLACA (API externa configurável pelo admin)
+    // ============================================================
+    let configPlaca = { ativa: false, url: "", token: "", header: "Authorization" };
+
+    async function carregarConfigPlaca() {
+        try {
+            const { data, error } = await banco.from("config_sistema")
+                .select("chave, valor")
+                .like("chave", "api_placa_%");
+            if (error) throw error;
+            const map = {};
+            (data || []).forEach(r => map[r.chave] = r.valor);
+            configPlaca = {
+                ativa: map.api_placa_ativa === "true",
+                url: map.api_placa_url || "",
+                token: map.api_placa_token || "",
+                header: map.api_placa_header || "Authorization"
+            };
+        } catch (e) {
+            console.warn("Não foi possível carregar config de placa:", e);
+        }
+    }
+
+    async function consultarPlaca() {
+        const placa = document.getElementById("veiculoPlaca").value.trim().toUpperCase();
+        if (!validarPlaca(placa)) { mostrarSendStatus("Placa inválida.", "err"); return; }
+        if (!configPlaca.ativa || !configPlaca.url) {
+            mostrarSendStatus("Consulta de placa não está configurada. Preencha manualmente.", "err");
+            return;
+        }
+
+        const btn = document.getElementById("btnConsultarPlaca");
+        btn.classList.add("loading");
+        btn.disabled = true;
+
+        try {
+            const url = configPlaca.url.replace("{placa}", encodeURIComponent(placa));
+            const headers = { "Accept": "application/json" };
+            if (configPlaca.token) {
+                headers[configPlaca.header] = configPlaca.token.startsWith("Bearer ")
+                    ? configPlaca.token
+                    : configPlaca.token;
+            }
+
+            const resp = await fetch(url, { method: "GET", headers });
+            if (!resp.ok) throw new Error("API retornou " + resp.status);
+            const json = await resp.json();
+
+            // Tentativa genérica de extrair campos comuns (varia por provedor)
+            const marca = json.marca || json.MARCA || json.brand || "";
+            const modelo = json.modelo || json.MODELO || json.model || "";
+            const cor = json.cor || json.COR || json.color || "";
+            const tipoVeic = (json.tipo || json.TIPO || "").toString().toUpperCase();
+
+            const modeloCompleto = (marca && modelo) ? `${marca} ${modelo}` : (modelo || marca);
+
+            if (modeloCompleto) document.getElementById("veiculoModelo").value = modeloCompleto;
+            if (cor) document.getElementById("veiculoCor").value = cor;
+
+            // Mapeia tipo se vier reconhecível
+            const mapTipo = {
+                "CARRO": "CARRO", "AUTOMOVEL": "CARRO", "AUTOMÓVEL": "CARRO",
+                "MOTO": "MOTO", "MOTOCICLETA": "MOTO",
+                "CAMINHAO": "CAMINHAO", "CAMINHÃO": "CAMINHAO",
+                "VAN": "VAN", "UTILITARIO": "UTILITARIO", "UTILITÁRIO": "UTILITARIO"
+            };
+            if (mapTipo[tipoVeic]) {
+                document.getElementById("veiculoTipo").value = mapTipo[tipoVeic];
+            }
+
+            mostrarSendStatus("✓ Dados do veículo carregados.", "ok");
+        } catch (e) {
+            console.error(e);
+            mostrarSendStatus("Falha ao consultar placa: " + (e.message || e) + ". Preencha manualmente.", "err");
+        } finally {
+            btn.classList.remove("loading");
+            btn.disabled = false;
+        }
+    }
 
     function setValidadePadrao() {
         const agora = new Date();
@@ -636,12 +750,18 @@
         const veiculoModelo = document.getElementById("veiculoModelo").value.trim() || null;
         const veiculoCor = document.getElementById("veiculoCor").value.trim() || null;
 
+        // DOCA: obrigatória para TRANSPORTADORA e CLIENTE
+        const docaValue = document.getElementById("doca").value;
+        const doca = docaValue ? parseInt(docaValue) : null;
+        const docaObrigatoria = (tipo === "TRANSPORTADORA" || tipo === "CLIENTE");
+
         let ok = true;
         if (nome.length < 3) { setError("nome", true); ok = false; }
         if (!validarCPF(cpf)) { setError("cpf", true); ok = false; }
         if (whatsapp && (whatsapp.length < 10 || whatsapp.length > 11)) { setError("whatsapp", true); ok = false; }
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("email", true); ok = false; }
         if (veiculoPlaca && !validarPlaca(veiculoPlaca)) { setError("veiculoPlaca", true); ok = false; }
+        if (docaObrigatoria && !doca) { setError("doca", true); ok = false; }
         if (!validade || new Date(validade) < new Date()) { setError("validade", true); ok = false; }
         if (!ok) { showStatus("Verifique os campos destacados.", "err"); return; }
 
@@ -674,6 +794,9 @@
                 veiculo_tipo: veiculoTipo,
                 veiculo_placa: veiculoPlaca,
                 veiculo_modelo: veiculoModelo,
+                veiculo_cor: veiculoCor,
+                doca: doca
+            }).select().single();
                 veiculo_cor: veiculoCor
             }).select().single();
             if (errorA) throw errorA;
@@ -682,7 +805,7 @@
             const qrImageBase64 = await renderTicket({
                 idAcesso: acesso.id_acesso, codigoQr: codigoQrUnico,
                 nome, setor, tipo, seguranca, validade, email, whatsapp,
-                veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor
+                veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor, doca
             });
 
             // Salva a imagem no banco para reenvio futuro
@@ -698,7 +821,7 @@
                 codigoQr: codigoQrUnico,
                 qrImageBase64,
                 nome, setor, tipo, seguranca, validade, email, whatsapp,
-                veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor
+                veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor, doca
             };
 
             showStatus("✓ Credencial gerada com sucesso.", "ok");
@@ -718,7 +841,7 @@
     // ============================================================
     // TICKET / QR
     // ============================================================
-    function renderTicket({ idAcesso, codigoQr, nome, setor, tipo, seguranca, validade, veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor }) {
+    function renderTicket({ idAcesso, codigoQr, nome, setor, tipo, seguranca, validade, veiculoTipo, veiculoPlaca, veiculoModelo, veiculoCor, doca }) {
         const ticket = document.getElementById("ticket");
         document.getElementById("ticketId").textContent = "#" + String(idAcesso).padStart(6, "0");
 
@@ -732,7 +855,14 @@
         });
 
         const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        const nivelCor = { 1: "var(--ok)", 2: "var(--warn)", 3: "var(--err)" };
+        const nivelIcon = { 1: "🟢", 2: "🟡", 3: "🔴" };
         const tiposVeic = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+        const docas = {
+            1: "DOCA 1 — Portão Frontal (Anexo 2)",
+            2: "DOCA 2 — Portão Fundos (Anexo 2)",
+            3: "DOCA 3 — Portão Lateral (Anexo 1)"
+        };
         const validadeFmt = new Date(validade).toLocaleString("pt-BR", {
             day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
         });
@@ -755,12 +885,19 @@
             `;
         }
 
+        // Linha da DOCA (se houver)
+        let linhaDoca = "";
+        if (doca) {
+            linhaDoca = `<dt>🚪 DOCA</dt><dd style="font-weight:700;color:var(--accent);">${escapeHtml(docas[doca])}</dd>`;
+        }
+
         document.getElementById("ticketInfo").innerHTML = `
             <dt>Visitante</dt><dd>${escapeHtml(nome)}</dd>
             <dt>Tipo</dt><dd>${escapeHtml(tipo)}</dd>
             <dt>Setor</dt><dd>${escapeHtml(setor)}</dd>
-            <dt>Nível</dt><dd>${seguranca} · ${niveis[seguranca]}</dd>
+            <dt>Nível</dt><dd style="color:${nivelCor[seguranca]};font-weight:700;">${nivelIcon[seguranca]} ${seguranca} · ${niveis[seguranca]}</dd>
             <dt>Válido até</dt><dd>${validadeFmt}</dd>
+            ${linhaDoca}
             ${linhaVeiculo}
             <dt>Código</dt><dd class="code">${escapeHtml(codigoQr)}</dd>
         `;
@@ -1035,9 +1172,14 @@ Apresente o código acima ou o QR Code na portaria.`;
         document.getElementById("formAcesso").reset();
         document.getElementById("ticket").classList.remove("show");
         document.getElementById("sendStatus").className = "send-status";
+        document.getElementById("campoDocaWrap").style.display = "none";
+        document.getElementById("btnConsultarPlaca").style.display = "none";
+        // Reset cor do nível
+        const sel = document.getElementById("seguranca");
+        sel.value = "1"; sel.className = "nivel-select nivel-1";
         ultimoAgendamento = null;
         hideStatus();
-        ["nome","cpf","whatsapp","email","validade","veiculoPlaca"].forEach(id => setError(id, false));
+        ["nome","cpf","whatsapp","email","validade","veiculoPlaca","doca"].forEach(id => setError(id, false));
         setValidadePadrao();
         const n = document.getElementById("nome"); if (n) n.focus();
     }

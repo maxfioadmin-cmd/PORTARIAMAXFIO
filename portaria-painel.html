@@ -68,10 +68,12 @@
         .pill.ENCERRADO { background: #f0eee9; color: var(--ink-soft); }
         .pill.EXPIRADO { background: #fdf6e3; color: var(--warn); }
         .pill.CANCELADO { background: #fbeeee; color: var(--err); }
-        .nivel-1, .nivel-2, .nivel-3 { font-weight: 600; }
-        .nivel-1 { color: var(--ok); }
-        .nivel-2 { color: var(--warn); }
-        .nivel-3 { color: var(--err); }
+        .nivel-1, .nivel-2, .nivel-3 { font-weight: 700; padding: 2px 8px; border-radius: 3px; display: inline-block; }
+        .nivel-1 { background: #eef6f1; color: var(--ok); border: 1px solid var(--ok); }
+        .nivel-2 { background: #fdf6e3; color: var(--warn); border: 1px solid var(--warn); }
+        .nivel-3 { background: #fbeeee; color: var(--err); border: 1px solid var(--err); }
+        .row-actions button.revalidar { color: var(--warn); border-color: var(--warn); }
+        .row-actions button.revalidar:hover { background: var(--warn); color: #fff; }
         .row-actions { display: flex; gap: 4px; }
         .row-actions button { padding: 4px 10px; font-size: 11px; border: 1px solid var(--line); background: #fff; border-radius: 3px; cursor: pointer; font: inherit; font-weight: 600; }
         .row-actions button:hover { background: var(--paper-warm); border-color: var(--ink); }
@@ -161,32 +163,12 @@
             .user-pill { width: 100%; margin-left: 0; justify-content: space-between; }
         }
     </style>
+<link rel="stylesheet" href="tema-escuro.css">
+<script>try{var t=localStorage.getItem("portaria_tema");if(t)document.documentElement.setAttribute("data-tema",t);}catch(e){}</script>
 </head>
 <body>
 
 <div id="bootLoader"><div class="spinner"></div><span>Carregando...</span></div>
-
-<!-- LOGIN -->
-<div id="loginView" class="login-wrap">
-    <div class="login-card">
-        <div class="login-header">
-            <div class="login-icon">P</div>
-            <h2>Acesso de Operador</h2>
-            <div class="sub">Painel da Portaria</div>
-        </div>
-        <div class="login-body">
-            <form id="formLogin" autocomplete="off" novalidate>
-                <label for="loginEmail">E-mail</label>
-                <input type="email" id="loginEmail" autocomplete="username" required>
-                <label for="loginSenha">Senha</label>
-                <input type="password" id="loginSenha" autocomplete="current-password" required>
-                <button type="submit" id="btnLogin">Entrar</button>
-                <div id="loginStatus" class="status"></div>
-            </form>
-        </div>
-        <footer class="foot">Uso restrito · Acesso monitorado</footer>
-    </div>
-</div>
 
 <!-- APP -->
 <main id="app" class="frame">
@@ -194,11 +176,11 @@
         <p class="eyebrow">Controle de Portaria</p>
         <h1>Painel de agendamentos</h1>
         <nav class="nav-links">
-            <a href="index.html">Início</a>
-            <a href="portaria-agendamento.html">Agendar</a>
+            <a href="dashboard.html">Início</a>
+            <a href="portaria-agendamento.html" id="navAgendar">Agendar</a>
             <a href="portaria-painel.html" class="active">Painel</a>
             <a href="portaria-scanner.html">📷 Scanner</a>
-            <a href="portaria-admin.html" id="linkAdmin" style="display:none;">Admin</a>
+            <a href="portaria-config.html" id="linkConfig">⚙ Config</a>
         </nav>
         <div class="meta">
             <span><span class="dot"></span>Operacional</span>
@@ -330,20 +312,18 @@
         else mostrarLogin();
     })();
 
+    let papelAtual = null;
+    let usuarioAtual = null;
+
     banco.auth.onAuthStateChange((event, session) => {
         if (event === "SIGNED_IN" && session) mostrarApp(session.user);
-        if (event === "SIGNED_OUT") mostrarLogin();
+        if (event === "SIGNED_OUT") { pararRealtime(); window.location.href = "index.html"; }
     });
 
-    function mostrarLogin() {
-        document.getElementById("bootLoader").style.display = "none";
-        document.getElementById("app").classList.remove("show");
-        document.getElementById("loginView").classList.add("show");
-        document.getElementById("loginEmail").focus();
-        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
-    }
+    function mostrarLogin() { window.location.href = "index.html"; }
 
     async function mostrarApp(user) {
+        usuarioAtual = user;
         try {
             const { data: perfil } = await banco.from("perfis_operadores")
                 .select("papel, ativo, deve_trocar_senha").eq("id", user.id).single();
@@ -358,42 +338,35 @@
                 return;
             }
 
+            papelAtual = perfil ? perfil.papel : "OPERADOR";
+
             document.getElementById("bootLoader").style.display = "none";
-            document.getElementById("loginView").classList.remove("show");
             document.getElementById("app").classList.add("show");
             document.getElementById("userEmail").textContent = user.email;
 
-            if (perfil && perfil.papel === "ADMIN") document.getElementById("linkAdmin").style.display = "inline-block";
+            // Ajusta navegação por papel
+            // ADMIN e OPERADOR veem Config; PORTEIRO não
+            if (papelAtual === "PORTEIRO") {
+                document.getElementById("linkConfig").style.display = "none";
+                const navAg = document.getElementById("navAgendar");
+                if (navAg) navAg.style.display = "none";
+            }
         } catch (e) {
             console.warn(e);
             document.getElementById("bootLoader").style.display = "none";
-            document.getElementById("loginView").classList.remove("show");
             document.getElementById("app").classList.add("show");
             document.getElementById("userEmail").textContent = user.email;
+            papelAtual = "OPERADOR";
         }
+        await carregarPreferenciasPainel();
         await carregarDados();
-        // Auto-refresh a cada 30s
-        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
-        intervalAtualizacao = setInterval(carregarDados, 30000);
+        iniciarRealtime();
+        // (Auto-refresh já é definido em carregarPreferenciasPainel conforme preferência)
     }
-
-    // ===== LOGIN =====
-    document.getElementById("formLogin").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("loginEmail").value.trim();
-        const senha = document.getElementById("loginSenha").value;
-        const st = document.getElementById("loginStatus");
-        try {
-            const { error } = await banco.auth.signInWithPassword({ email, password: senha });
-            if (error) throw error;
-        } catch (error) {
-            st.className = "status show err";
-            st.textContent = error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message;
-        }
-    });
 
     async function logout() {
         if (!confirm("Deseja realmente sair?")) return;
+        pararRealtime();
         await banco.auth.signOut();
     }
 
@@ -491,33 +464,47 @@
             return;
         }
 
+        const isPorteiro = papelAtual === "PORTEIRO";
+        const isAdmin = papelAtual === "ADMIN";
+
         const linhas = dados.map(d => {
             const status = d.status_efetivo || d.status_acesso;
             const validadeFmt = new Date(d.valido_ate).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
             const niveis = { 1:"Operacional", 2:"Restrito", 3:"Crítico" };
+            const nivelIcon = { 1:"🟢", 2:"🟡", 3:"🔴" };
             const cpfFmt = formatarCPF(d.cpf_rg);
+            const docas = { 1:"Frontal A2", 2:"Fundos A2", 3:"Lateral A1" };
+
+            // Verifica se este usuário pode editar (criou ou é admin)
+            const ehMeu = d.criado_por === usuarioAtual.id;
+            const podeRevalidar = (isAdmin || (papelAtual === "OPERADOR" && ehMeu)) && (d.revalidacoes || 0) < 2;
+            const podeCancelar = isAdmin || (papelAtual === "OPERADOR" && ehMeu);
+            const podeLiberar = isAdmin || isPorteiro;
+            const podeEncerrar = isAdmin || isPorteiro;
+            const podeReenviarMsg = (isAdmin || papelAtual === "OPERADOR") && d.qr_image_base64 && (d.email || d.whatsapp);
 
             let acoes = "";
-            const podeReenviar = d.qr_image_base64 && (d.email || d.whatsapp);
-
             if (d.status_acesso === "AGENDADO") {
-                acoes = `
-                    <button class="liberar" onclick="liberar(${d.id_acesso})">Liberar</button>
-                    ${podeReenviar ? `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>` : ""}
-                    <button class="cancelar" onclick="cancelar(${d.id_acesso})">Cancelar</button>
-                `;
+                if (podeLiberar) acoes += `<button class="liberar" onclick="liberar(${d.id_acesso})">Liberar</button>`;
+                if (podeReenviarMsg) acoes += `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>`;
+                if (podeRevalidar) acoes += `<button class="revalidar" onclick="abrirRevalidacao(${d.id_acesso})" title="Restam ${2 - (d.revalidacoes || 0)} revalidação(ões)">↻ Revalidar</button>`;
+                if (podeCancelar) acoes += `<button class="cancelar" onclick="cancelar(${d.id_acesso})">Cancelar</button>`;
             } else if (d.status_acesso === "LIBERADO") {
-                acoes = `
-                    <button class="encerrar" onclick="encerrar(${d.id_acesso})">Registrar saída</button>
-                    ${podeReenviar ? `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>` : ""}
-                `;
-            } else if (podeReenviar) {
+                if (podeEncerrar) acoes += `<button class="encerrar" onclick="encerrar(${d.id_acesso})">Saída</button>`;
+                if (podeReenviarMsg) acoes += `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>`;
+            } else if (d.status_efetivo === "EXPIRADO" && podeRevalidar) {
+                acoes += `<button class="revalidar" onclick="abrirRevalidacao(${d.id_acesso})">↻ Revalidar</button>`;
+                if (podeReenviarMsg) acoes += `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>`;
+            } else if (podeReenviarMsg) {
                 acoes = `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>`;
             }
+            if (!acoes) acoes = '<span style="font-size:11px;color:var(--ink-soft);">—</span>';
 
             const badges = [];
             if (d.enviado_email) badges.push('<span class="send-badge email" title="E-mail enviado">✉</span>');
             if (d.enviado_whatsapp) badges.push('<span class="send-badge whats" title="WhatsApp enviado">📱</span>');
+            if (d.anexo_url) badges.push(`<a href="${d.anexo_url}" target="_blank" class="send-badge" style="background:#eef2fb;color:var(--info);text-decoration:none;" title="Ver foto anexada">📷</a>`);
+            if ((d.revalidacoes || 0) > 0) badges.push(`<span class="send-badge" style="background:#fdf6e3;color:var(--warn);" title="Revalidado ${d.revalidacoes}x">↻${d.revalidacoes}</span>`);
             const sendBadges = badges.length ? `<span class="send-badges">${badges.join("")}</span>` : "";
 
             // Veículo (badge discreto)
@@ -527,7 +514,9 @@
                 const modelo = d.veiculo_modelo || "";
                 const tipos = { CARRO: "🚗", MOTO: "🏍", CAMINHAO: "🚛", VAN: "🚐", UTILITARIO: "🚙", OUTRO: "🚗" };
                 const icone = tipos[d.veiculo_tipo] || "🚗";
-                veiculoBadge = `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">${icone} <strong style="font-family:monospace;letter-spacing:.04em;">${escapeHtml(placa)}</strong>${modelo ? " · " + escapeHtml(modelo) : ""}</div>`;
+                veiculoBadge = `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">${icone} <strong style="font-family:monospace;letter-spacing:.04em;">${escapeHtml(placa)}</strong>${modelo ? " · " + escapeHtml(modelo) : ""}${d.doca ? ` · 🚪 DOCA ${d.doca} (${docas[d.doca]})` : ""}</div>`;
+            } else if (d.doca) {
+                veiculoBadge = `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">🚪 DOCA ${d.doca} — ${docas[d.doca]}</div>`;
             }
 
             return `
@@ -540,7 +529,7 @@
                     </td>
                     <td class="hide-mobile">${escapeHtml(d.tipo_visitante)}</td>
                     <td>${escapeHtml(d.setor_visitado)}</td>
-                    <td class="hide-mobile"><span class="nivel-${d.nivel_seguranca}">${d.nivel_seguranca} · ${niveis[d.nivel_seguranca]}</span></td>
+                    <td class="hide-mobile"><span class="nivel-${d.nivel_seguranca}">${nivelIcon[d.nivel_seguranca]} ${d.nivel_seguranca} · ${niveis[d.nivel_seguranca]}</span></td>
                     <td class="hide-mobile">${validadeFmt}</td>
                     <td><span class="pill ${status}">${status}</span></td>
                     <td><div class="row-actions">${acoes}</div></td>
@@ -893,6 +882,193 @@ Apresente o código acima ou o QR Code na portaria.`;
         const c = String(cpf).replace(/\D/g, "");
         if (c.length !== 11) return cpf;
         return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+
+    // ============================================================
+    // REALTIME — alertas sonoros para novo agendamento e liberação
+    // ============================================================
+    let canalRealtime = null;
+    let audioCtx = null;
+    let somHabilitado = true;
+    let volumeAlertas = 0.18;  // medio
+    let alertasVisuais = true;
+    let autoRefreshSeg = 30;
+
+    async function carregarPreferenciasPainel() {
+        try {
+            const { data, error } = await banco.rpc("minhas_preferencias");
+            if (error) throw error;
+            const p = (data && data[0]) || {};
+            somHabilitado = p.out_som_alertas !== false;
+            alertasVisuais = p.out_alertas_visuais !== false;
+            autoRefreshSeg = p.out_auto_refresh_seg ?? 30;
+            const vol = p.out_volume_alertas || "medio";
+            const volMap = { baixo: 0.08, medio: 0.18, alto: 0.32 };
+            volumeAlertas = volMap[vol] || 0.18;
+
+            // Aplica auto-refresh
+            if (intervalAtualizacao) clearInterval(intervalAtualizacao);
+            if (autoRefreshSeg > 0) {
+                intervalAtualizacao = setInterval(carregarDados, autoRefreshSeg * 1000);
+            }
+
+            // Aplica tema
+            const tema = p.out_tema || "claro";
+            const efetivo = tema === "sistema"
+                ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro")
+                : tema;
+            document.documentElement.setAttribute("data-tema", efetivo);
+            try { localStorage.setItem("portaria_tema", efetivo); } catch(e) {}
+        } catch (e) {
+            console.warn("Preferências não carregadas, usando padrões:", e);
+        }
+    }
+
+    function getAudioContext() {
+        if (!audioCtx) {
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+            catch (e) { console.warn("AudioContext indisponível:", e); }
+        }
+        return audioCtx;
+    }
+
+    // Som 1: novo agendamento — 2 bips agudos (Dó-Mi)
+    function tocarSomNovoAgendamento() {
+        if (!somHabilitado) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        bipar(ctx, 880, 0, 0.15, volumeAlertas);
+        bipar(ctx, 1320, 0.18, 0.15, volumeAlertas);
+    }
+
+    // Som 2: entrada liberada — acorde ascendente (Dó-Mi-Sol)
+    function tocarSomLiberacao() {
+        if (!somHabilitado) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const v = Math.min(volumeAlertas * 1.2, 0.4);
+        bipar(ctx, 523, 0, 0.12, v);
+        bipar(ctx, 659, 0.12, 0.12, v);
+        bipar(ctx, 784, 0.24, 0.18, v);
+    }
+
+    // Bipe genérico (Web Audio API)
+    function bipar(ctx, freq, delay, duracao, volume) {
+        const t = ctx.currentTime + delay;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = "sine";
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(volume, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duracao);
+        osc.start(t);
+        osc.stop(t + duracao + 0.05);
+    }
+
+    function iniciarRealtime() {
+        if (canalRealtime) return;
+
+        canalRealtime = banco.channel("portaria-acessos")
+            .on("postgres_changes", {
+                event: "INSERT",
+                schema: "public",
+                table: "controle_acessos"
+            }, (payload) => {
+                console.log("📥 Novo agendamento:", payload.new);
+                tocarSomNovoAgendamento();
+                mostrarNotificacao("📅 Novo agendamento criado", "info");
+                carregarDados();
+            })
+            .on("postgres_changes", {
+                event: "UPDATE",
+                schema: "public",
+                table: "controle_acessos"
+            }, (payload) => {
+                const old = payload.old || {};
+                const novo = payload.new || {};
+                // Detecta liberação (AGENDADO → LIBERADO)
+                if (old.status_acesso !== "LIBERADO" && novo.status_acesso === "LIBERADO") {
+                    console.log("✅ Entrada liberada:", novo);
+                    tocarSomLiberacao();
+                    mostrarNotificacao("✅ Entrada liberada", "ok");
+                }
+                carregarDados();
+            })
+            .subscribe();
+    }
+
+    function pararRealtime() {
+        if (canalRealtime) {
+            banco.removeChannel(canalRealtime);
+            canalRealtime = null;
+        }
+    }
+
+    function mostrarNotificacao(msg, tipo) {
+        if (!alertasVisuais) return;
+        // Toast flutuante
+        let el = document.getElementById("toastNotif");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "toastNotif";
+            el.style.cssText = "position:fixed;top:20px;right:20px;padding:14px 18px;border-radius:4px;font-weight:600;font-size:14px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:opacity .3s,transform .3s;";
+            document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.background = tipo === "ok" ? "#2d6a4f" : "#2c5e8f";
+        el.style.color = "#fff";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+        clearTimeout(el.timeout);
+        el.timeout = setTimeout(() => {
+            el.style.opacity = "0";
+            el.style.transform = "translateY(-20px)";
+        }, 3500);
+    }
+
+    // ============================================================
+    // REVALIDAÇÃO (operador/admin podem estender validade até 2x)
+    // ============================================================
+    async function abrirRevalidacao(idAcesso) {
+        const visita = dadosCache.find(d => d.id_acesso === idAcesso);
+        if (!visita) return;
+        if (visita.revalidacoes >= 2) {
+            mostrarToast("Limite de 2 revalidações atingido. Crie um novo agendamento.", "err");
+            return;
+        }
+        // Sugere validade nova: +24h da validade atual ou agora+24h se passou
+        const base = new Date(visita.valido_ate);
+        const sugerida = base > new Date() ? base : new Date();
+        sugerida.setHours(sugerida.getHours() + 24);
+        const offset = sugerida.getTimezoneOffset() * 60000;
+        const padrao = new Date(sugerida.getTime() - offset).toISOString().slice(0, 16);
+
+        const nova = prompt(
+            `Revalidar agendamento de ${visita.nome_completo}\n` +
+            `Restam ${2 - visita.revalidacoes} revalidação(ões).\n\n` +
+            `Informe a nova data/hora de validade:`,
+            padrao
+        );
+        if (!nova) return;
+
+        try {
+            const { data, error } = await banco.rpc("revalidar_acesso", {
+                p_id_acesso: idAcesso,
+                p_nova_validade: new Date(nova).toISOString()
+            });
+            if (error) throw error;
+            if (data && data.sucesso === false) {
+                mostrarToast(data.mensagem, "err");
+                return;
+            }
+            mostrarToast("✓ " + (data.mensagem || "Revalidado."), "ok");
+            await carregarDados();
+        } catch (e) {
+            mostrarToast("Erro: " + (e.message || e), "err");
+        }
     }
 </script>
 </body>
