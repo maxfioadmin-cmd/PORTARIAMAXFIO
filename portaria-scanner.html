@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scanner · Liberação de Acesso</title>
+    <meta name="theme-color" content="#1a1d1f">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- html5-qrcode: biblioteca de scanner via câmera -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c; --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 12px; }
+
+        .frame { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+
+        header.brand { padding: 16px 20px; background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: center; }
+        header.brand .titulo { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500; }
+        header.brand .nav { display: flex; gap: 8px; }
+        header.brand .nav a { color: var(--paper); text-decoration: none; font-size: 11px; padding: 4px 10px; border: 1px solid rgba(247,245,240,.3); border-radius: 3px; opacity: .8; }
+        header.brand .nav a:hover { opacity: 1; background: rgba(255,255,255,.1); }
+
+        .user-bar { padding: 8px 20px; background: var(--paper-warm); font-size: 11px; color: var(--ink-soft); display: flex; justify-content: space-between; align-items: center; }
+        .user-bar button { background: none; border: 1px solid var(--line); padding: 4px 10px; font: inherit; font-size: 11px; border-radius: 3px; cursor: pointer; }
+
+        /* Scanner */
+        .scanner-section { padding: 20px; }
+        .scanner-section h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0 0 4px; text-align: center; }
+        .scanner-section .sub { text-align: center; font-size: 12px; color: var(--ink-soft); margin-bottom: 16px; }
+
+        #reader { width: 100% !important; max-width: 400px; margin: 0 auto; border-radius: 6px; overflow: hidden; background: #000; }
+        #reader video { width: 100% !important; height: auto !important; display: block; }
+        #reader__dashboard { padding: 8px !important; background: var(--paper) !important; }
+        #reader__dashboard_section_csr button { font: inherit !important; font-size: 12px !important; padding: 8px 14px !important; border-radius: 3px !important; }
+
+        .btn-scan { width: 100%; padding: 14px; background: var(--ink); color: var(--paper); border: none; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+        .btn-scan:hover { background: #000; }
+        .btn-scan.parar { background: var(--err); }
+
+        /* Entrada manual */
+        .manual { padding: 16px 20px; border-top: 1px solid var(--line); background: var(--paper); }
+        .manual label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); font-weight: 600; margin-bottom: 6px; }
+        .manual-row { display: flex; gap: 8px; }
+        .manual input { flex: 1; padding: 11px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 3px; font-family: monospace; text-transform: uppercase; }
+        .manual input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .manual button { padding: 11px 18px; background: var(--info); color: #fff; border: none; border-radius: 3px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .manual button:hover { background: #1a4870; }
+
+        /* Resultado */
+        .resultado { padding: 0; display: none; }
+        .resultado.show { display: block; }
+
+        .resultado-banner { padding: 20px; text-align: center; color: #fff; }
+        .resultado-banner.ok { background: var(--ok); }
+        .resultado-banner.aviso { background: var(--warn); }
+        .resultado-banner.erro { background: var(--err); }
+        .resultado-banner .icon { font-size: 48px; margin-bottom: 8px; }
+        .resultado-banner h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; }
+        .resultado-banner .msg { font-size: 13px; opacity: .95; margin-top: 6px; }
+
+        .resultado-info { padding: 20px; }
+        .resultado-info .nome { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 500; line-height: 1.2; margin-bottom: 4px; }
+        .resultado-info .cpf { font-size: 12px; color: var(--ink-soft); font-family: monospace; margin-bottom: 16px; }
+
+        .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 13px; margin-bottom: 16px; padding: 14px; background: var(--paper); border-radius: 4px; }
+        .info-grid dt { color: var(--ink-soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; align-self: center; }
+        .info-grid dd { margin: 0; font-weight: 600; }
+
+        .veic-box { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--info); border-radius: 4px; padding: 12px 14px; margin-bottom: 16px; }
+        .veic-box .titulo { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); font-weight: 700; margin-bottom: 6px; }
+        .veic-box .placa { font-family: monospace; font-size: 22px; font-weight: 700; letter-spacing: .08em; }
+        .veic-box .desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+        .nivel-warn { background: #fdf6e3; border: 1px solid var(--warn); padding: 10px 12px; border-radius: 3px; font-size: 12px; margin-bottom: 16px; color: var(--ink); }
+        .nivel-warn.critico { background: #fbeeee; border-color: var(--err); color: var(--err); font-weight: 600; }
+
+        .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+        .acoes button { flex: 1; min-width: 140px; padding: 14px; font: inherit; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; border: none; }
+        .acoes .voltar { background: var(--ink); color: var(--paper); }
+        .acoes .voltar:hover { background: #000; }
+        .acoes .encerrar { background: var(--info); color: #fff; }
+        .acoes .encerrar:hover { background: #1a4870; }
+
+        /* Login */
+        .login-wrap { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 24px); }
+        .login-card { max-width: 360px; width: 100%; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+        .login-header { padding: 28px 24px 20px; background: var(--ink); color: var(--paper); text-align: center; }
+        .login-icon { width: 48px; height: 48px; margin: 0 auto 10px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; }
+        .login-header h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px; margin: 0; }
+        .login-header .sub { font-size: 11px; opacity: .8; margin-top: 4px; }
+        .login-body { padding: 24px; }
+        .login-body label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; }
+        .login-body input { width: 100%; padding: 11px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 3px; margin-bottom: 14px; }
+        .login-body input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .login-body button { width: 100%; padding: 14px; background: var(--ink); color: var(--paper); border: none; border-radius: 3px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+        .status { padding: 10px 12px; border-radius: 3px; font-size: 12px; display: none; margin-top: 10px; }
+        .status.show { display: block; }
+        .status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
+
+        #app { display: none; }
+        #app.show { display: block; }
+        #loginView { display: none; }
+        #loginView.show { display: block; }
+        #bootLoader { display: flex; align-items: center; justify-content: center; min-height: 50vh; gap: 10px; color: var(--ink-soft); font-size: 13px; }
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(26,29,31,.15); border-top-color: var(--ink); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="bootLoader"><div class="spinner"></div><span>Verificando sessão...</span></div>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-wrap">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">🛡</div>
+            <h2>Portaria · Scanner</h2>
+            <div class="sub">Acesso restrito ao porteiro</div>
+        </div>
+        <div class="login-body">
+            <form id="formLogin" autocomplete="off" novalidate>
+                <label>E-mail</label>
+                <input type="email" id="loginEmail" autocomplete="username" required>
+                <label>Senha</label>
+                <input type="password" id="loginSenha" autocomplete="current-password" required>
+                <button type="submit">Entrar</button>
+                <div id="loginStatus" class="status"></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- APP -->
+<main id="app" class="frame">
+    <header class="brand">
+        <span class="titulo">🛡 Scanner Portaria</span>
+        <div class="nav">
+            <a href="index.html">Início</a>
+            <a href="portaria-painel.html">Painel</a>
+        </div>
+    </header>
+
+    <div class="user-bar">
+        <span>👤 <span id="userEmail">—</span></span>
+        <button onclick="logout()">Sair</button>
+    </div>
+
+    <!-- TELA DE SCANNER -->
+    <div id="telaScanner">
+        <div class="scanner-section">
+            <h2>Escanear QR Code</h2>
+            <div class="sub">Aponte a câmera para o código do visitante</div>
+
+            <div id="reader"></div>
+
+            <button class="btn-scan" id="btnScan" onclick="alternarScanner()">📷 Iniciar Câmera</button>
+        </div>
+
+        <div class="manual">
+            <label for="codigoManual">Ou digite o código manualmente</label>
+            <div class="manual-row">
+                <input type="text" id="codigoManual" placeholder="PRT-XXXXX-XXXXX" autocomplete="off">
+                <button onclick="validarManual()">Validar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA DE RESULTADO -->
+    <div id="telaResultado" class="resultado">
+        <div class="resultado-banner" id="resultadoBanner">
+            <div class="icon" id="resultadoIcon">⏳</div>
+            <h3 id="resultadoTitulo">—</h3>
+            <div class="msg" id="resultadoMsg">—</div>
+        </div>
+        <div class="resultado-info">
+            <div class="nome" id="resultadoNome">—</div>
+            <div class="cpf" id="resultadoCpf">—</div>
+
+            <div id="resultadoNivelWarn" style="display:none;"></div>
+
+            <dl class="info-grid" id="resultadoInfo"></dl>
+
+            <div id="resultadoVeic" style="display:none;"></div>
+
+            <div class="acoes">
+                <button class="voltar" onclick="novoEscaneamento()">📷 Escanear próximo</button>
+                <button class="encerrar" id="btnEncerrar" onclick="encerrarVisita()" style="display:none;">🚪 Registrar saída</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    let html5QrcodeScanner = null;
+    let scannerAtivo = false;
+    let ultimoResultado = null;
+
+    // ===== INIT =====
+    (async function init() {
+        const { data: { session } } = await banco.auth.getSession();
+        if (session) mostrarApp(session.user);
+        else mostrarLogin();
+    })();
+
+    banco.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" && session) mostrarApp(session.user);
+        if (event === "SIGNED_OUT") { pararScanner(); mostrarLogin(); }
+    });
+
+    function mostrarLogin() {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("app").classList.remove("show");
+        document.getElementById("loginView").classList.add("show");
+        document.getElementById("loginEmail").focus();
+    }
+
+    function mostrarApp(user) {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("loginView").classList.remove("show");
+        document.getElementById("app").classList.add("show");
+        document.getElementById("userEmail").textContent = user.email;
+    }
+
+    // ===== LOGIN =====
+    document.getElementById("formLogin").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("loginEmail").value.trim();
+        const senha = document.getElementById("loginSenha").value;
+        const st = document.getElementById("loginStatus");
+        try {
+            const { error } = await banco.auth.signInWithPassword({ email, password: senha });
+            if (error) throw error;
+        } catch (error) {
+            st.className = "status show err";
+            st.textContent = error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message;
+        }
+    });
+
+    async function logout() {
+        if (!confirm("Deseja sair?")) return;
+        pararScanner();
+        await banco.auth.signOut();
+    }
+
+    // ===== SCANNER =====
+    function alternarScanner() {
+        if (scannerAtivo) pararScanner();
+        else iniciarScanner();
+    }
+
+    function iniciarScanner() {
+        try {
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, // câmera traseira
+                config,
+                onQrLido,
+                () => {} // ignora erros de leitura contínua
+            ).then(() => {
+                scannerAtivo = true;
+                const btn = document.getElementById("btnScan");
+                btn.textContent = "⏹ Parar Câmera";
+                btn.classList.add("parar");
+            }).catch(err => {
+                alert("Não foi possível acessar a câmera: " + err);
+            });
+        } catch (e) {
+            alert("Erro ao iniciar scanner: " + e.message);
+        }
+    }
+
+    function pararScanner() {
+        if (html5QrcodeScanner && scannerAtivo) {
+            html5QrcodeScanner.stop().then(() => {
+                html5QrcodeScanner.clear();
+                scannerAtivo = false;
+                const btn = document.getElementById("btnScan");
+                if (btn) {
+                    btn.textContent = "📷 Iniciar Câmera";
+                    btn.classList.remove("parar");
+                }
+            }).catch(() => {});
+        }
+    }
+
+    function onQrLido(decodedText) {
+        // Vibrar (mobile)
+        if (navigator.vibrate) navigator.vibrate(150);
+        // Som curto
+        try { new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=").play(); } catch(e) {}
+
+        pararScanner();
+        validarToken(decodedText.trim());
+    }
+
+    function validarManual() {
+        const codigo = document.getElementById("codigoManual").value.trim();
+        if (!codigo) return;
+        validarToken(codigo);
+    }
+
+    // ===== VALIDAR =====
+    async function validarToken(token) {
+        try {
+            const { data, error } = await banco.rpc("validar_qr", { qr_token: token });
+            if (error) throw error;
+
+            const r = data && data[0];
+            if (!r) {
+                mostrarResultado({ sucesso: false, mensagem: "Resposta vazia do servidor.", status_efetivo: "ERRO" });
+                return;
+            }
+
+            ultimoResultado = r;
+            mostrarResultado(r);
+        } catch (e) {
+            console.error(e);
+            mostrarResultado({ sucesso: false, mensagem: "Erro: " + (e.message || e), status_efetivo: "ERRO" });
+        }
+    }
+
+    function mostrarResultado(r) {
+        document.getElementById("telaScanner").style.display = "none";
+        document.getElementById("telaResultado").classList.add("show");
+
+        const banner = document.getElementById("resultadoBanner");
+        const icon = document.getElementById("resultadoIcon");
+        const titulo = document.getElementById("resultadoTitulo");
+        const msg = document.getElementById("resultadoMsg");
+
+        const status = r.status_efetivo;
+        if (r.sucesso) {
+            if (status === "LIBERADO" && r.mensagem.includes("anteriormente")) {
+                banner.className = "resultado-banner aviso";
+                icon.textContent = "ℹ️";
+                titulo.textContent = "JÁ LIBERADO";
+            } else {
+                banner.className = "resultado-banner ok";
+                icon.textContent = "✅";
+                titulo.textContent = "ENTRADA LIBERADA";
+            }
+        } else {
+            banner.className = "resultado-banner erro";
+            icon.textContent = "⛔";
+            titulo.textContent = status === "EXPIRADO" ? "QR EXPIRADO" :
+                                 status === "CANCELADO" ? "ACESSO CANCELADO" :
+                                 status === "ENCERRADO" ? "JÁ ENCERRADO" :
+                                 "ACESSO NEGADO";
+        }
+        msg.textContent = r.mensagem;
+
+        if (!r.id_acesso) {
+            // QR não encontrado
+            document.getElementById("resultadoNome").textContent = "—";
+            document.getElementById("resultadoCpf").textContent = "Código não encontrado no sistema";
+            document.getElementById("resultadoInfo").innerHTML = "";
+            document.getElementById("resultadoVeic").style.display = "none";
+            document.getElementById("btnEncerrar").style.display = "none";
+            return;
+        }
+
+        document.getElementById("resultadoNome").textContent = r.nome_completo;
+        document.getElementById("resultadoCpf").textContent =
+            "#" + String(r.id_acesso).padStart(6,"0") + " · CPF: " + formatarCPF(r.cpf_rg) +
+            (r.empresa_origem ? " · " + r.empresa_origem : "");
+
+        // Aviso de nível
+        const nivelDiv = document.getElementById("resultadoNivelWarn");
+        const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        if (r.nivel_seguranca === 3) {
+            nivelDiv.className = "nivel-warn critico";
+            nivelDiv.textContent = "⚠️ NÍVEL 3 - CRÍTICO: confirme procedimentos de segurança extra";
+            nivelDiv.style.display = "block";
+        } else if (r.nivel_seguranca === 2) {
+            nivelDiv.className = "nivel-warn";
+            nivelDiv.textContent = "⚠️ Nível 2 - Acesso restrito: verifique autorização do anfitrião";
+            nivelDiv.style.display = "block";
+        } else {
+            nivelDiv.style.display = "none";
+        }
+
+        const validadeFmt = new Date(r.valido_ate).toLocaleString("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        document.getElementById("resultadoInfo").innerHTML = `
+            <dt>Tipo</dt><dd>${escapeHtml(r.tipo_visitante)}</dd>
+            <dt>Setor</dt><dd>${escapeHtml(r.setor_visitado)}</dd>
+            <dt>Nível</dt><dd>${r.nivel_seguranca} · ${niveis[r.nivel_seguranca]}</dd>
+            <dt>Válido até</dt><dd>${validadeFmt}</dd>
+        `;
+
+        // Veículo
+        const veicDiv = document.getElementById("resultadoVeic");
+        if (r.veiculo_placa || r.veiculo_modelo) {
+            const tiposVeic = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+            const partes = [];
+            if (r.veiculo_tipo) partes.push(tiposVeic[r.veiculo_tipo] || r.veiculo_tipo);
+            if (r.veiculo_modelo) partes.push(r.veiculo_modelo);
+            if (r.veiculo_cor) partes.push(r.veiculo_cor);
+            veicDiv.innerHTML = `
+                <div class="veic-box">
+                    <div class="titulo">🚗 Confira o veículo</div>
+                    <div class="placa">${escapeHtml(r.veiculo_placa || "—")}</div>
+                    <div class="desc">${escapeHtml(partes.join(" · ") || "—")}</div>
+                </div>
+            `;
+            veicDiv.style.display = "block";
+        } else {
+            veicDiv.style.display = "none";
+        }
+
+        // Mostra botão de encerrar só se foi liberado
+        document.getElementById("btnEncerrar").style.display = r.sucesso ? "block" : "none";
+    }
+
+    async function encerrarVisita() {
+        if (!ultimoResultado || !ultimoResultado.id_acesso) return;
+        if (!confirm("Registrar saída deste visitante?")) return;
+        try {
+            const { error } = await banco.from("controle_acessos")
+                .update({ status_acesso: "ENCERRADO", saida_em: new Date().toISOString() })
+                .eq("id_acesso", ultimoResultado.id_acesso);
+            if (error) throw error;
+            alert("✓ Saída registrada com sucesso.");
+            novoEscaneamento();
+        } catch (e) {
+            alert("Erro: " + (e.message || e));
+        }
+    }
+
+    function novoEscaneamento() {
+        document.getElementById("telaResultado").classList.remove("show");
+        document.getElementById("telaScanner").style.display = "block";
+        document.getElementById("codigoManual").value = "";
+        ultimoResultado = null;
+    }
+
+    function formatarCPF(cpf) {
+        if (!cpf) return "";
+        const c = String(cpf).replace(/\D/g, "");
+        if (c.length !== 11) return cpf;
+        return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+</script>
+</body>
+</html>

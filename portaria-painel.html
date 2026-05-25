@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portaria · Painel de Agendamentos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c;
+            --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 32px 16px; background-image: radial-gradient(circle at 20% 10%, rgba(200,85,61,.04) 0%, transparent 40%), radial-gradient(circle at 80% 90%, rgba(45,106,79,.04) 0%, transparent 40%); }
+        .frame { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(26,29,31,.04), 0 8px 24px rgba(26,29,31,.06); }
+        header.brand { padding: 28px 32px 24px; border-bottom: 1px solid var(--line); background: var(--paper-warm); position: relative; }
+        header.brand::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--ink); }
+        .eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; margin: 0 0 6px; }
+        h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 28px; line-height: 1.15; margin: 0; letter-spacing: -.01em; }
+        .nav-links { margin-top: 10px; display: flex; gap: 12px; font-size: 12px; }
+        .nav-links a { color: var(--ink); text-decoration: none; padding: 4px 0; border-bottom: 1px solid var(--line); font-weight: 500; }
+        .nav-links a:hover { border-color: var(--ink); }
+        .nav-links a.active { border-color: var(--accent); color: var(--accent); }
+        .meta { margin-top: 12px; font-size: 12px; color: var(--ink-soft); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; box-shadow: 0 0 0 3px rgba(45,106,79,.15); }
+        .user-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 11px; }
+        .user-pill button { background: none; border: 1px solid var(--line); padding: 4px 10px; border-radius: 3px; font: inherit; font-size: 11px; color: var(--ink); cursor: pointer; font-weight: 500; }
+        .user-pill button:hover { background: #fff; }
+
+        /* Cards de resumo */
+        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 24px 32px; border-bottom: 1px solid var(--line); }
+        .stat { padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 3px; }
+        .stat .label { font-size: 10px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+        .stat .value { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 500; margin-top: 4px; }
+        .stat.ok .value { color: var(--ok); }
+        .stat.warn .value { color: var(--warn); }
+        .stat.err .value { color: var(--err); }
+        .stat.info .value { color: var(--info); }
+
+        /* Filtros */
+        .filters { padding: 20px 32px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; flex-wrap: wrap; align-items: end; background: #fbfaf6; }
+        .filter-field { display: flex; flex-direction: column; gap: 4px; }
+        .filter-field label { font-size: 10px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+        .filter-field select, .filter-field input { padding: 8px 10px; font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 3px; background: #fff; min-width: 140px; }
+        .filter-field input:focus, .filter-field select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .filter-actions { margin-left: auto; display: flex; gap: 8px; }
+        .btn { padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; border-radius: 3px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+        .btn:hover { background: var(--paper-warm); border-color: var(--ink); }
+        .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+        .btn.primary:hover { background: #000; }
+
+        /* Tabela */
+        .table-wrap { padding: 0 32px 24px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th { text-align: left; padding: 10px 8px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); border-bottom: 1px solid var(--ink); }
+        td { padding: 12px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+        tr:hover td { background: #fbfaf6; }
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+        .pill.AGENDADO { background: #eef2fb; color: var(--info); }
+        .pill.LIBERADO { background: #eef6f1; color: var(--ok); }
+        .pill.ENCERRADO { background: #f0eee9; color: var(--ink-soft); }
+        .pill.EXPIRADO { background: #fdf6e3; color: var(--warn); }
+        .pill.CANCELADO { background: #fbeeee; color: var(--err); }
+        .nivel-1, .nivel-2, .nivel-3 { font-weight: 600; }
+        .nivel-1 { color: var(--ok); }
+        .nivel-2 { color: var(--warn); }
+        .nivel-3 { color: var(--err); }
+        .row-actions { display: flex; gap: 4px; }
+        .row-actions button { padding: 4px 10px; font-size: 11px; border: 1px solid var(--line); background: #fff; border-radius: 3px; cursor: pointer; font: inherit; font-weight: 600; }
+        .row-actions button:hover { background: var(--paper-warm); border-color: var(--ink); }
+        .row-actions button.liberar { color: var(--ok); border-color: var(--ok); }
+        .row-actions button.liberar:hover { background: var(--ok); color: #fff; }
+        .row-actions button.encerrar { color: var(--info); border-color: var(--info); }
+        .row-actions button.encerrar:hover { background: var(--info); color: #fff; }
+        .row-actions button.cancelar { color: var(--err); border-color: var(--err); }
+        .row-actions button.cancelar:hover { background: var(--err); color: #fff; }
+        .row-actions button.reenviar { color: var(--accent); border-color: var(--accent); }
+        .row-actions button.reenviar:hover { background: var(--accent); color: #fff; }
+
+        /* Modal de reenvio */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(26,29,31,.5); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: #fff; border-radius: 4px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+        .modal-head { padding: 20px 24px; border-bottom: 1px solid var(--line); background: var(--paper-warm); display: flex; justify-content: space-between; align-items: center; }
+        .modal-head h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--ink-soft); line-height: 1; padding: 0; }
+        .modal-body { padding: 20px 24px; }
+        .modal-qr { display: flex; justify-content: center; padding: 16px; background: var(--paper); border-radius: 3px; margin-bottom: 16px; }
+        .modal-qr img { max-width: 200px; }
+        .modal-info { font-size: 13px; margin-bottom: 16px; }
+        .modal-info dt { font-size: 10px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; margin-top: 6px; font-weight: 600; }
+        .modal-info dd { margin: 0; font-weight: 500; }
+        .modal-info dd.code { font-family: monospace; font-size: 11px; color: var(--ink-soft); word-break: break-all; }
+        .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 24px 20px; border-top: 1px solid var(--line); }
+        .modal-actions button { flex: 1; min-width: 120px; padding: 10px; border: 1px solid var(--line); background: #fff; border-radius: 3px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .modal-actions button:hover { background: var(--paper-warm); }
+        .modal-actions button.whats { color: #25d366; border-color: #25d366; }
+        .modal-actions button.whats:hover { background: #25d366; color: #fff; }
+        .modal-actions button.email { color: var(--info); border-color: var(--info); }
+        .modal-actions button.email:hover { background: var(--info); color: #fff; }
+        .send-badges { display: inline-flex; gap: 4px; margin-left: 6px; }
+        .send-badge { display: inline-block; padding: 1px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+        .send-badge.email { background: #eef2fb; color: var(--info); }
+        .send-badge.whats { background: #eef6f1; color: var(--ok); }
+
+        /* Endereço no modal */
+        .modal-endereco { margin: 8px 0 16px; padding: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 3px; display: flex; gap: 10px; align-items: flex-start; }
+        .modal-endereco .pin { font-size: 18px; line-height: 1; color: var(--accent); flex-shrink: 0; }
+        .modal-endereco .info { flex: 1; font-size: 12px; }
+        .modal-endereco .titulo { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); font-weight: 600; margin-bottom: 3px; }
+        .modal-endereco .rua { font-weight: 600; color: var(--ink); }
+        .modal-endereco .complemento { color: var(--ink-soft); margin-top: 2px; }
+        .modal-endereco a { display: inline-block; margin-top: 6px; font-size: 11px; color: var(--info); text-decoration: none; font-weight: 600; }
+        .modal-endereco a:hover { text-decoration: underline; }
+
+        .empty { text-align: center; padding: 48px 24px; color: var(--ink-soft); font-size: 13px; }
+        .empty .icon { font-family: 'Fraunces', serif; font-size: 48px; color: var(--line); margin-bottom: 8px; }
+
+        footer.foot { padding: 16px 32px; border-top: 1px solid var(--line); background: #fbfaf6; font-size: 11px; color: var(--ink-soft); text-align: center; letter-spacing: .04em; }
+
+        /* Login (reaproveitado) */
+        .login-wrap { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 64px); }
+        .login-card { max-width: 380px; width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(26,29,31,.04), 0 8px 24px rgba(26,29,31,.06); }
+        .login-header { padding: 32px 32px 24px; border-bottom: 1px solid var(--line); background: var(--paper-warm); position: relative; text-align: center; }
+        .login-header::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--ink); }
+        .login-icon { width: 48px; height: 48px; margin: 0 auto 12px; background: var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--paper); font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; }
+        .login-card h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; }
+        .login-card .sub { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+        .login-body { padding: 28px 32px; }
+        .login-body label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+        .login-body input { width: 100%; padding: 11px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 3px; margin-bottom: 16px; }
+        .login-body input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .login-body button { width: 100%; padding: 14px 20px; background: var(--ink); color: var(--paper); border: none; border-radius: 3px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .status { padding: 12px 14px; border-radius: 3px; font-size: 13px; display: none; margin: 16px 0 0; }
+        .status.show { display: block; }
+        .status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
+        .status.ok { background: #eef6f1; color: var(--ok); border-left: 3px solid var(--ok); }
+
+        #app { display: none; }
+        #app.show { display: block; }
+        #loginView { display: none; }
+        #loginView.show { display: block; }
+        #bootLoader { display: flex; align-items: center; justify-content: center; min-height: 50vh; color: var(--ink-soft); font-size: 13px; gap: 10px; }
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(26,29,31,.15); border-top-color: var(--ink); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            header.brand, .summary, .filters, .table-wrap, footer.foot { padding-left: 16px; padding-right: 16px; }
+            .summary { grid-template-columns: repeat(2, 1fr); }
+            table { font-size: 12px; }
+            th, td { padding: 8px 4px; }
+            .hide-mobile { display: none; }
+            .user-pill { width: 100%; margin-left: 0; justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="bootLoader"><div class="spinner"></div><span>Carregando...</span></div>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-wrap">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">P</div>
+            <h2>Acesso de Operador</h2>
+            <div class="sub">Painel da Portaria</div>
+        </div>
+        <div class="login-body">
+            <form id="formLogin" autocomplete="off" novalidate>
+                <label for="loginEmail">E-mail</label>
+                <input type="email" id="loginEmail" autocomplete="username" required>
+                <label for="loginSenha">Senha</label>
+                <input type="password" id="loginSenha" autocomplete="current-password" required>
+                <button type="submit" id="btnLogin">Entrar</button>
+                <div id="loginStatus" class="status"></div>
+            </form>
+        </div>
+        <footer class="foot">Uso restrito · Acesso monitorado</footer>
+    </div>
+</div>
+
+<!-- APP -->
+<main id="app" class="frame">
+    <header class="brand">
+        <p class="eyebrow">Controle de Portaria</p>
+        <h1>Painel de agendamentos</h1>
+        <nav class="nav-links">
+            <a href="index.html">Início</a>
+            <a href="portaria-agendamento.html">Agendar</a>
+            <a href="portaria-painel.html" class="active">Painel</a>
+            <a href="portaria-scanner.html">📷 Scanner</a>
+            <a href="portaria-admin.html" id="linkAdmin" style="display:none;">Admin</a>
+        </nav>
+        <div class="meta">
+            <span><span class="dot"></span>Operacional</span>
+            <span id="datetime"></span>
+            <div class="user-pill">
+                <span id="userEmail">—</span>
+                <button onclick="logout()">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- RESUMO -->
+    <div class="summary">
+        <div class="stat info"><div class="label">Agendados</div><div class="value" id="statAgendados">—</div></div>
+        <div class="stat ok"><div class="label">Liberados (no local)</div><div class="value" id="statLiberados">—</div></div>
+        <div class="stat"><div class="label">Encerrados hoje</div><div class="value" id="statEncerrados">—</div></div>
+        <div class="stat warn"><div class="label">Expirados</div><div class="value" id="statExpirados">—</div></div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filters">
+        <div class="filter-field">
+            <label for="filtroStatus">Status</label>
+            <select id="filtroStatus" onchange="carregarDados()">
+                <option value="ATIVOS">Ativos (hoje + futuros)</option>
+                <option value="TODOS">Todos</option>
+                <option value="AGENDADO">Agendados</option>
+                <option value="LIBERADO">Liberados</option>
+                <option value="ENCERRADO">Encerrados</option>
+                <option value="EXPIRADO">Expirados</option>
+                <option value="CANCELADO">Cancelados</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="filtroPeriodo">Período</label>
+            <select id="filtroPeriodo" onchange="carregarDados()">
+                <option value="HOJE">Hoje</option>
+                <option value="7DIAS">Últimos 7 dias</option>
+                <option value="30DIAS">Últimos 30 dias</option>
+                <option value="FUTUROS">Futuros</option>
+                <option value="TUDO">Todos</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="filtroBusca">Buscar</label>
+            <input type="text" id="filtroBusca" placeholder="Nome, CPF, empresa ou placa..." oninput="filtrarTabela()">
+        </div>
+        <div class="filter-actions">
+            <button class="btn" onclick="carregarDados()">↻ Atualizar</button>
+            <button class="btn primary" onclick="window.location.href='portaria-agendamento.html'">+ Novo</button>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-wrap">
+        <div id="status" class="status"></div>
+        <div id="tabelaContainer"></div>
+    </div>
+
+    <footer class="foot">Sistema interno · Atualização automática a cada 30s</footer>
+</main>
+
+<!-- Modal de reenvio -->
+<div class="modal-overlay" id="modalReenvio">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>Reenviar credencial</h3>
+            <button class="modal-close" onclick="fecharModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-qr" id="modalQr">—</div>
+            <dl class="modal-info" id="modalInfo"></dl>
+            <div class="modal-endereco">
+                <div class="pin">📍</div>
+                <div class="info">
+                    <div class="titulo">Endereço da visita</div>
+                    <div class="rua">R. Ilnah Pacheco Secundino de Oliveira, 160</div>
+                    <div class="complemento">Cidade Industrial de Curitiba (CIC) · CEP 81460-032</div>
+                    <a id="modalMapsLink" target="_blank" rel="noopener">🗺 Abrir no Google Maps →</a>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="whats" onclick="reenviarWhatsApp()">📱 WhatsApp</button>
+            <button class="email" onclick="reenviarEmail()">✉ E-mail</button>
+            <button onclick="copiarCodigo()">📋 Copiar código</button>
+            <button onclick="baixarQR()">⬇ Baixar QR</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    // ============================================================
+    // ENDEREÇO DA EMPRESA — edite aqui se mudar
+    // ============================================================
+    const EMPRESA = {
+        nome: "Unidade Industrial / Galpão (CIC)",
+        rua: "R. Ilnah Pacheco Secundino de Oliveira, 160",
+        bairro: "Cidade Industrial de Curitiba (CIC)",
+        cidade: "Curitiba - PR",
+        cep: "81460-032",
+        mapsUrl: "https://www.google.com/maps/search/?api=1&query=" +
+                 encodeURIComponent("R. Ilnah Pacheco Secundino de Oliveira, 160 - Cidade Industrial de Curitiba, Curitiba - PR, 81460-032")
+    };
+
+    // URL base para links de credencial pública
+    const BASE_URL = window.location.href.replace(/\/[^\/]*$/, "");
+    const linkCredencial = (codigo) => `${BASE_URL}/credencial.html?qr=${encodeURIComponent(codigo)}`;
+
+    let dadosCache = [];
+    let intervalAtualizacao = null;
+    let visitaSelecionada = null;
+
+    // ===== INICIALIZAÇÃO =====
+    (async function init() {
+        if (SUPABASE_URL.includes("SEU-PROJETO")) {
+            document.getElementById("bootLoader").innerHTML = '<div style="color:var(--err);">⚠ Configure SUPABASE_URL e SUPABASE_ANON_KEY no script.</div>';
+            return;
+        }
+        const { data: { session } } = await banco.auth.getSession();
+        if (session) mostrarApp(session.user);
+        else mostrarLogin();
+    })();
+
+    banco.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" && session) mostrarApp(session.user);
+        if (event === "SIGNED_OUT") mostrarLogin();
+    });
+
+    function mostrarLogin() {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("app").classList.remove("show");
+        document.getElementById("loginView").classList.add("show");
+        document.getElementById("loginEmail").focus();
+        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
+    }
+
+    async function mostrarApp(user) {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("loginView").classList.remove("show");
+        document.getElementById("app").classList.add("show");
+        document.getElementById("userEmail").textContent = user.email;
+        try {
+            const { data: perfil } = await banco.from("perfis_operadores").select("papel").eq("id", user.id).single();
+            if (perfil && perfil.papel === "ADMIN") document.getElementById("linkAdmin").style.display = "inline-block";
+        } catch (e) {}
+        await carregarDados();
+        // Auto-refresh a cada 30s
+        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
+        intervalAtualizacao = setInterval(carregarDados, 30000);
+    }
+
+    // ===== LOGIN =====
+    document.getElementById("formLogin").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("loginEmail").value.trim();
+        const senha = document.getElementById("loginSenha").value;
+        const st = document.getElementById("loginStatus");
+        try {
+            const { error } = await banco.auth.signInWithPassword({ email, password: senha });
+            if (error) throw error;
+        } catch (error) {
+            st.className = "status show err";
+            st.textContent = error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message;
+        }
+    });
+
+    async function logout() {
+        if (!confirm("Deseja realmente sair?")) return;
+        await banco.auth.signOut();
+    }
+
+    // ===== RELÓGIO =====
+    function atualizarRelogio() {
+        const el = document.getElementById("datetime");
+        if (el) el.textContent = new Date().toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    }
+    atualizarRelogio();
+    setInterval(atualizarRelogio, 30000);
+
+    // ===== CARREGAR DADOS =====
+    async function carregarDados() {
+        const statusFiltro = document.getElementById("filtroStatus").value;
+        const periodoFiltro = document.getElementById("filtroPeriodo").value;
+
+        try {
+            let query = banco.from("vw_acessos_completo").select("*").order("criado_em", { ascending: false });
+
+            // Filtro de período
+            const agora = new Date();
+            if (periodoFiltro === "HOJE") {
+                const inicio = new Date(agora); inicio.setHours(0,0,0,0);
+                query = query.gte("criado_em", inicio.toISOString());
+            } else if (periodoFiltro === "7DIAS") {
+                const d = new Date(agora); d.setDate(d.getDate() - 7);
+                query = query.gte("criado_em", d.toISOString());
+            } else if (periodoFiltro === "30DIAS") {
+                const d = new Date(agora); d.setDate(d.getDate() - 30);
+                query = query.gte("criado_em", d.toISOString());
+            } else if (periodoFiltro === "FUTUROS") {
+                query = query.gte("valido_ate", agora.toISOString());
+            }
+
+            // Filtro de status
+            if (statusFiltro === "ATIVOS") {
+                query = query.in("status_acesso", ["AGENDADO","LIBERADO"]);
+            } else if (statusFiltro !== "TODOS") {
+                query = query.eq("status_acesso", statusFiltro);
+            }
+
+            query = query.limit(500);
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            dadosCache = data || [];
+            atualizarStats(dadosCache);
+            filtrarTabela();
+        } catch (error) {
+            console.error(error);
+            const st = document.getElementById("status");
+            st.className = "status show err";
+            st.textContent = "Erro ao carregar: " + (error.message || JSON.stringify(error));
+        }
+    }
+
+    function atualizarStats(dados) {
+        const hoje = new Date(); hoje.setHours(0,0,0,0);
+        const agora = new Date();
+        let agendados = 0, liberados = 0, encerradosHoje = 0, expirados = 0;
+        dados.forEach(d => {
+            if (d.status_acesso === "AGENDADO" && new Date(d.valido_ate) >= agora) agendados++;
+            if (d.status_acesso === "LIBERADO") liberados++;
+            if (d.status_acesso === "ENCERRADO" && new Date(d.saida_em || d.criado_em) >= hoje) encerradosHoje++;
+            if (d.status_efetivo === "EXPIRADO" || d.status_acesso === "EXPIRADO") expirados++;
+        });
+        document.getElementById("statAgendados").textContent = agendados;
+        document.getElementById("statLiberados").textContent = liberados;
+        document.getElementById("statEncerrados").textContent = encerradosHoje;
+        document.getElementById("statExpirados").textContent = expirados;
+    }
+
+    // ===== FILTRO DE BUSCA + RENDER =====
+    function filtrarTabela() {
+        const busca = document.getElementById("filtroBusca").value.toLowerCase().trim();
+        let dados = dadosCache;
+        if (busca) {
+            const buscaLimpa = busca.replace(/[^a-z0-9]/gi, "").toLowerCase();
+            dados = dados.filter(d =>
+                (d.nome_completo || "").toLowerCase().includes(busca) ||
+                (d.cpf_rg || "").includes(busca.replace(/\D/g, "")) ||
+                (d.empresa_origem || "").toLowerCase().includes(busca) ||
+                (d.veiculo_placa || "").toLowerCase().replace(/[^a-z0-9]/g, "").includes(buscaLimpa) ||
+                (d.veiculo_modelo || "").toLowerCase().includes(busca)
+            );
+        }
+        renderTabela(dados);
+    }
+
+    function renderTabela(dados) {
+        const cont = document.getElementById("tabelaContainer");
+        if (!dados.length) {
+            cont.innerHTML = '<div class="empty"><div class="icon">∅</div>Nenhum agendamento encontrado com esses filtros.</div>';
+            return;
+        }
+
+        const linhas = dados.map(d => {
+            const status = d.status_efetivo || d.status_acesso;
+            const validadeFmt = new Date(d.valido_ate).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+            const niveis = { 1:"Operacional", 2:"Restrito", 3:"Crítico" };
+            const cpfFmt = formatarCPF(d.cpf_rg);
+
+            let acoes = "";
+            const podeReenviar = d.qr_image_base64 && (d.email || d.whatsapp);
+
+            if (d.status_acesso === "AGENDADO") {
+                acoes = `
+                    <button class="liberar" onclick="liberar(${d.id_acesso})">Liberar</button>
+                    ${podeReenviar ? `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>` : ""}
+                    <button class="cancelar" onclick="cancelar(${d.id_acesso})">Cancelar</button>
+                `;
+            } else if (d.status_acesso === "LIBERADO") {
+                acoes = `
+                    <button class="encerrar" onclick="encerrar(${d.id_acesso})">Registrar saída</button>
+                    ${podeReenviar ? `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>` : ""}
+                `;
+            } else if (podeReenviar) {
+                acoes = `<button class="reenviar" onclick="abrirModal(${d.id_acesso})">Reenviar</button>`;
+            }
+
+            const badges = [];
+            if (d.enviado_email) badges.push('<span class="send-badge email" title="E-mail enviado">✉</span>');
+            if (d.enviado_whatsapp) badges.push('<span class="send-badge whats" title="WhatsApp enviado">📱</span>');
+            const sendBadges = badges.length ? `<span class="send-badges">${badges.join("")}</span>` : "";
+
+            // Veículo (badge discreto)
+            let veiculoBadge = "";
+            if (d.veiculo_placa || d.veiculo_modelo) {
+                const placa = d.veiculo_placa || "—";
+                const modelo = d.veiculo_modelo || "";
+                const tipos = { CARRO: "🚗", MOTO: "🏍", CAMINHAO: "🚛", VAN: "🚐", UTILITARIO: "🚙", OUTRO: "🚗" };
+                const icone = tipos[d.veiculo_tipo] || "🚗";
+                veiculoBadge = `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">${icone} <strong style="font-family:monospace;letter-spacing:.04em;">${escapeHtml(placa)}</strong>${modelo ? " · " + escapeHtml(modelo) : ""}</div>`;
+            }
+
+            return `
+                <tr>
+                    <td><strong>#${String(d.id_acesso).padStart(6,"0")}</strong></td>
+                    <td>
+                        <div style="font-weight:600;">${escapeHtml(d.nome_completo)}${sendBadges}</div>
+                        <div style="font-size:11px;color:var(--ink-soft);">${cpfFmt}${d.empresa_origem ? " · "+escapeHtml(d.empresa_origem) : ""}</div>
+                        ${veiculoBadge}
+                    </td>
+                    <td class="hide-mobile">${escapeHtml(d.tipo_visitante)}</td>
+                    <td>${escapeHtml(d.setor_visitado)}</td>
+                    <td class="hide-mobile"><span class="nivel-${d.nivel_seguranca}">${d.nivel_seguranca} · ${niveis[d.nivel_seguranca]}</span></td>
+                    <td class="hide-mobile">${validadeFmt}</td>
+                    <td><span class="pill ${status}">${status}</span></td>
+                    <td><div class="row-actions">${acoes}</div></td>
+                </tr>
+            `;
+        }).join("");
+
+        cont.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Visitante</th>
+                        <th class="hide-mobile">Tipo</th>
+                        <th>Setor</th>
+                        <th class="hide-mobile">Nível</th>
+                        <th class="hide-mobile">Válido até</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+            </table>
+        `;
+    }
+
+    // ===== AÇÕES =====
+    async function liberar(idAcesso) {
+        if (!confirm("Confirmar liberação de entrada deste visitante?")) return;
+        try {
+            const { error } = await banco.from("controle_acessos")
+                .update({ status_acesso: "LIBERADO", entrada_em: new Date().toISOString() })
+                .eq("id_acesso", idAcesso);
+            if (error) throw error;
+            mostrarToast("Entrada liberada.", "ok");
+            await carregarDados();
+        } catch (e) { mostrarToast("Erro: " + e.message, "err"); }
+    }
+
+    async function encerrar(idAcesso) {
+        if (!confirm("Registrar saída deste visitante?")) return;
+        try {
+            const { error } = await banco.from("controle_acessos")
+                .update({ status_acesso: "ENCERRADO", saida_em: new Date().toISOString() })
+                .eq("id_acesso", idAcesso);
+            if (error) throw error;
+            mostrarToast("Saída registrada.", "ok");
+            await carregarDados();
+        } catch (e) { mostrarToast("Erro: " + e.message, "err"); }
+    }
+
+    async function cancelar(idAcesso) {
+        if (!confirm("Cancelar este agendamento?")) return;
+        try {
+            const { error } = await banco.from("controle_acessos")
+                .update({ status_acesso: "CANCELADO" })
+                .eq("id_acesso", idAcesso);
+            if (error) throw error;
+            mostrarToast("Agendamento cancelado.", "ok");
+            await carregarDados();
+        } catch (e) { mostrarToast("Erro: " + e.message, "err"); }
+    }
+
+    function mostrarToast(msg, tipo) {
+        const st = document.getElementById("status");
+        st.className = `status show ${tipo}`;
+        st.textContent = msg;
+        setTimeout(() => { st.className = "status"; }, 3000);
+    }
+
+    // ===== MODAL DE REENVIO =====
+    function abrirModal(idAcesso) {
+        const visita = dadosCache.find(d => d.id_acesso === idAcesso);
+        if (!visita) return;
+        visitaSelecionada = visita;
+
+        const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        const tiposVeic = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+        const validadeFmt = new Date(visita.valido_ate).toLocaleString("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        // Mostra QR salvo
+        const qrDiv = document.getElementById("modalQr");
+        if (visita.qr_image_base64) {
+            qrDiv.innerHTML = `<img src="${visita.qr_image_base64}" alt="QR Code">`;
+        } else {
+            qrDiv.innerHTML = '<div style="color:var(--ink-soft);padding:40px;">QR não armazenado</div>';
+        }
+
+        // Linha de veículo (só se houver)
+        let linhaVeiculo = "";
+        if (visita.veiculo_placa || visita.veiculo_modelo) {
+            const partes = [];
+            if (visita.veiculo_tipo) partes.push(tiposVeic[visita.veiculo_tipo] || visita.veiculo_tipo);
+            if (visita.veiculo_modelo) partes.push(visita.veiculo_modelo);
+            if (visita.veiculo_cor) partes.push(visita.veiculo_cor);
+            const desc = partes.join(" · ");
+            const placa = visita.veiculo_placa ? `<strong style="font-family:monospace;letter-spacing:.04em;">${escapeHtml(visita.veiculo_placa)}</strong>` : "—";
+            linhaVeiculo = `<dt>🚗 Veículo</dt><dd>${escapeHtml(desc) || "—"} · ${placa}</dd>`;
+        }
+
+        document.getElementById("modalInfo").innerHTML = `
+            <dt>Visitante</dt><dd>${escapeHtml(visita.nome_completo)}</dd>
+            <dt>Setor / Nível</dt><dd>${escapeHtml(visita.setor_visitado)} · ${visita.nivel_seguranca} - ${niveis[visita.nivel_seguranca]}</dd>
+            <dt>Válido até</dt><dd>${validadeFmt}</dd>
+            ${linhaVeiculo}
+            <dt>Contatos</dt><dd>${visita.email || "—"} · ${visita.whatsapp ? formatarTelefone(visita.whatsapp) : "—"}</dd>
+            <dt>Código</dt><dd class="code">${escapeHtml(visita.codigo_qr)}</dd>
+        `;
+
+        document.getElementById("modalMapsLink").href = EMPRESA.mapsUrl;
+
+        document.getElementById("modalReenvio").classList.add("show");
+    }
+
+    function fecharModal() {
+        document.getElementById("modalReenvio").classList.remove("show");
+        visitaSelecionada = null;
+    }
+
+    // Fecha modal ao clicar fora
+    document.getElementById("modalReenvio").addEventListener("click", (e) => {
+        if (e.target.id === "modalReenvio") fecharModal();
+    });
+
+    function reenviarWhatsApp() {
+        if (!visitaSelecionada) return;
+        const v = visitaSelecionada;
+        if (!v.whatsapp) { mostrarToast("Visitante sem WhatsApp cadastrado.", "err"); return; }
+
+        const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        const tiposVeicWa = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+        const validadeFmt = new Date(v.valido_ate).toLocaleString("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        // Bloco do veículo
+        let blocoVeicWa = "";
+        if (v.veiculo_tipo || v.veiculo_placa || v.veiculo_modelo) {
+            const partes = [];
+            if (v.veiculo_tipo) partes.push(tiposVeicWa[v.veiculo_tipo] || v.veiculo_tipo);
+            if (v.veiculo_modelo) partes.push(v.veiculo_modelo);
+            if (v.veiculo_cor) partes.push(v.veiculo_cor);
+            blocoVeicWa = `\n🚗 *Veículo cadastrado:*\n${partes.join(" · ")}${v.veiculo_placa ? `\nPlaca: *${v.veiculo_placa}*` : ""}\n`;
+        }
+
+        const msg =
+`*Credencial de Acesso - Portaria*
+
+Olá, ${v.nome_completo}!
+
+Sua visita está agendada:
+• Setor: ${v.setor_visitado}
+• Nível: ${v.nivel_seguranca} - ${niveis[v.nivel_seguranca]}
+• Válido até: ${validadeFmt}
+
+🎫 *Sua credencial completa (com QR Code):*
+${linkCredencial(v.codigo_qr)}
+
+*Código de acesso:* ${v.codigo_qr}
+${blocoVeicWa}
+📍 *Endereço da visita:*
+${EMPRESA.rua}
+${EMPRESA.bairro}
+${EMPRESA.cidade} - CEP ${EMPRESA.cep}
+
+🗺 Localização no Google Maps:
+${EMPRESA.mapsUrl}
+
+📋 *Normas de Segurança:*
+1. Abaixe os vidros e retire boné/óculos escuros ao chegar
+2. Permita vistoria do veículo (entrada e saída)
+3. Use EPIs obrigatórios em áreas operacionais
+4. Proibido portar armas, bebidas alcoólicas ou drogas
+5. Estacione apenas no local indicado (máx. 20 km/h)
+6. Permaneça junto ao anfitrião responsável
+
+Ambiente monitorado por câmeras 24h.
+
+Apresente o QR Code (no link acima) na portaria.`;
+
+        const url = `https://wa.me/55${v.whatsapp}?text=${encodeURIComponent(msg)}`;
+        window.open(url, "_blank");
+
+        marcarEnviado(v.id_acesso, "whatsapp");
+        registrarLog(v.id_acesso, "WHATSAPP", v.whatsapp, true);
+        mostrarToast("WhatsApp aberto.", "ok");
+        fecharModal();
+    }
+
+    async function reenviarEmail() {
+        if (!visitaSelecionada) return;
+        const v = visitaSelecionada;
+        if (!v.email) { mostrarToast("Visitante sem e-mail cadastrado.", "err"); return; }
+
+        // Tenta Edge Function
+        try {
+            const { data, error } = await banco.functions.invoke("enviar-credencial-email", {
+                body: {
+                    idAcesso: v.id_acesso,
+                    para: v.email,
+                    nome: v.nome_completo,
+                    codigoQr: v.codigo_qr,
+                    qrImageBase64: v.qr_image_base64,
+                    linkCredencial: linkCredencial(v.codigo_qr),
+                    setor: v.setor_visitado,
+                    tipo: v.tipo_visitante,
+                    nivel: v.nivel_seguranca,
+                    validade: v.valido_ate,
+                    endereco: EMPRESA,
+                    veiculo: {
+                        tipo: v.veiculo_tipo,
+                        placa: v.veiculo_placa,
+                        modelo: v.veiculo_modelo,
+                        cor: v.veiculo_cor
+                    }
+                }
+            });
+            if (!error && data && data.sucesso) {
+                marcarEnviado(v.id_acesso, "email");
+                registrarLog(v.id_acesso, "EMAIL", v.email, true);
+                mostrarToast("✓ E-mail enviado para " + v.email, "ok");
+                fecharModal();
+                await carregarDados();
+                return;
+            }
+        } catch (e) { console.log("Edge function indisponível, usando mailto"); }
+
+        // Fallback mailto
+        const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        const tiposVeicEm = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+        const validadeFmt = new Date(v.valido_ate).toLocaleString("pt-BR", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        let blocoVeicEmail = "";
+        if (v.veiculo_tipo || v.veiculo_placa || v.veiculo_modelo) {
+            const partes = [];
+            if (v.veiculo_tipo) partes.push(`Tipo: ${tiposVeicEm[v.veiculo_tipo] || v.veiculo_tipo}`);
+            if (v.veiculo_modelo) partes.push(`Modelo: ${v.veiculo_modelo}`);
+            if (v.veiculo_cor) partes.push(`Cor: ${v.veiculo_cor}`);
+            if (v.veiculo_placa) partes.push(`Placa: ${v.veiculo_placa}`);
+            blocoVeicEmail = `\n================================\nVEÍCULO CADASTRADO\n================================\n\n${partes.join("\n")}\n`;
+        }
+
+        const assunto = `Credencial de Acesso - Portaria - ${v.nome_completo}`;
+        const corpo =
+`Olá, ${v.nome_completo}!
+
+Sua visita está agendada com os seguintes dados:
+
+Setor: ${v.setor_visitado}
+Tipo: ${v.tipo_visitante}
+Nível: ${v.nivel_seguranca} - ${niveis[v.nivel_seguranca]}
+Válido até: ${validadeFmt}
+
+CÓDIGO DE ACESSO: ${v.codigo_qr}
+
+🎫 CREDENCIAL COMPLETA (com QR Code para apresentar):
+${linkCredencial(v.codigo_qr)}
+${blocoVeicEmail}
+================================
+ENDEREÇO DA VISITA
+================================
+
+${EMPRESA.nome}
+${EMPRESA.rua}
+${EMPRESA.bairro}
+${EMPRESA.cidade} - CEP ${EMPRESA.cep}
+
+Localização no Google Maps:
+${EMPRESA.mapsUrl}
+
+================================
+NORMAS DE SEGURANÇA
+================================
+
+1. IDENTIFICAÇÃO VISUAL: motorista e passageiros devem abaixar totalmente os vidros e retirar bonés, chapéus, óculos escuros ou capuzes ao se aproximarem da portaria.
+
+2. INSPEÇÃO DE VEÍCULOS: obrigatória a vistoria de entrada e saída (porta-malas, caçambas ou baús). Apresente documentação veicular e nota fiscal da carga quando solicitado.
+
+3. USO DE EPIs: em áreas operacionais, é obrigatório o uso de Equipamentos de Proteção Individual (botas com biqueira, colete reflexivo e demais EPIs aplicáveis), conforme NR-12.
+
+4. ITENS RESTRITOS: proibida a entrada com armas, bebidas alcoólicas, drogas, e gravações não autorizadas nas áreas operacionais.
+
+5. ESTACIONAMENTO E CIRCULAÇÃO: estacione apenas no local indicado. Velocidade máxima de 20 km/h dentro do perímetro.
+
+6. ACOMPANHAMENTO: permaneça junto ao anfitrião responsável.
+
+Ambiente monitorado por câmeras 24h.
+
+================================
+
+Apresente o código acima ou o QR Code na portaria.`;
+
+        window.location.href = `mailto:${encodeURIComponent(v.email)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+        marcarEnviado(v.id_acesso, "email");
+        registrarLog(v.id_acesso, "EMAIL", v.email, true);
+        mostrarToast("Cliente de e-mail aberto.", "ok");
+        fecharModal();
+    }
+
+    async function copiarCodigo() {
+        if (!visitaSelecionada) return;
+        try {
+            await navigator.clipboard.writeText(visitaSelecionada.codigo_qr);
+            mostrarToast("Código copiado.", "ok");
+        } catch (e) { mostrarToast("Não foi possível copiar.", "err"); }
+    }
+
+    function baixarQR() {
+        if (!visitaSelecionada || !visitaSelecionada.qr_image_base64) return;
+        const link = document.createElement("a");
+        link.href = visitaSelecionada.qr_image_base64;
+        link.download = `qr-${visitaSelecionada.codigo_qr}.png`;
+        link.click();
+    }
+
+    async function marcarEnviado(idAcesso, canal) {
+        const campo = canal === "email" ? "enviado_email" : "enviado_whatsapp";
+        await banco.from("controle_acessos")
+            .update({ [campo]: true, ultima_tentativa_envio: new Date().toISOString() })
+            .eq("id_acesso", idAcesso);
+        await carregarDados();
+    }
+
+    async function registrarLog(idAcesso, canal, destinatario, sucesso, erro) {
+        try {
+            await banco.from("log_envios").insert({
+                id_acesso: idAcesso, canal, destinatario, sucesso,
+                mensagem_erro: erro || null
+            });
+        } catch (e) { console.warn("Falha ao registrar log:", e); }
+    }
+
+    function formatarTelefone(t) {
+        if (!t) return "";
+        const c = String(t).replace(/\D/g, "");
+        if (c.length === 11) return c.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+        if (c.length === 10) return c.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+        return t;
+    }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+    function formatarCPF(cpf) {
+        if (!cpf) return "";
+        const c = String(cpf).replace(/\D/g, "");
+        if (c.length !== 11) return cpf;
+        return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+</script>
+</body>
+</html>

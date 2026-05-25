@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Credencial de Acesso</title>
+    <meta name="theme-color" content="#1a1d1f">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c; --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 16px; background-image: radial-gradient(circle at 20% 10%, rgba(200,85,61,.05) 0%, transparent 50%), radial-gradient(circle at 80% 90%, rgba(45,106,79,.05) 0%, transparent 50%); }
+
+        .card { max-width: 440px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(26,29,31,.1); }
+
+        .header { background: var(--ink); color: var(--paper); padding: 24px; text-align: center; position: relative; }
+        .header::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 4px; background: var(--accent); }
+        .header .eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; opacity: .8; margin-bottom: 6px; }
+        .header h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; margin: 0; letter-spacing: -.01em; }
+        .header .id { font-family: monospace; font-size: 11px; opacity: .6; margin-top: 6px; letter-spacing: .05em; }
+
+        .status-bar { padding: 12px 16px; text-align: center; font-weight: 600; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
+        .status-bar.AGENDADO { background: #eef2fb; color: var(--info); }
+        .status-bar.LIBERADO { background: #eef6f1; color: var(--ok); }
+        .status-bar.ENCERRADO { background: #f0eee9; color: var(--ink-soft); }
+        .status-bar.EXPIRADO { background: #fdf6e3; color: var(--warn); }
+        .status-bar.CANCELADO { background: #fbeeee; color: var(--err); }
+        .status-bar .icon { margin-right: 6px; }
+
+        .qr-section { padding: 28px 24px; text-align: center; background: linear-gradient(to bottom, #fff, var(--paper)); border-bottom: 1px dashed var(--line); }
+        .qr-frame { display: inline-block; padding: 16px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+        .qr-frame img, .qr-frame canvas { display: block; width: 220px; height: 220px; }
+        .qr-code { font-family: monospace; font-size: 11px; color: var(--ink-soft); margin-top: 12px; word-break: break-all; padding: 0 16px; }
+        .qr-hint { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
+
+        .save-buttons { display: flex; gap: 8px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+        .save-buttons button { flex: 1; padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .15s; }
+        .save-buttons button:hover { background: var(--paper-warm); border-color: var(--ink); }
+        .save-buttons button:active { transform: scale(.98); }
+        .save-buttons button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+        .save-buttons button.primary:hover { background: #000; }
+
+        .section { padding: 20px 24px; border-bottom: 1px solid var(--line); }
+        .section:last-of-type { border-bottom: none; }
+        .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-soft); font-weight: 700; margin-bottom: 12px; }
+
+        .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 13px; }
+        .info-grid dt { color: var(--ink-soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; align-self: center; }
+        .info-grid dd { margin: 0; font-weight: 600; }
+
+        .endereco { background: var(--paper); border-radius: 6px; padding: 14px; }
+        .endereco .rua { font-size: 15px; font-weight: 700; line-height: 1.4; }
+        .endereco .complemento { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+        .endereco .maps-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; padding: 12px; background: var(--info); color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; border-radius: 4px; }
+        .endereco .maps-btn:hover { background: #1a4870; }
+
+        .veiculo { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--info); border-radius: 4px; padding: 12px 14px; }
+        .veiculo .placa { font-family: monospace; font-size: 22px; font-weight: 700; letter-spacing: .08em; }
+        .veiculo .desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+        .normas { font-size: 12px; line-height: 1.55; color: var(--ink-soft); }
+        .normas .item { margin-bottom: 10px; padding-left: 22px; position: relative; }
+        .normas .item::before { content: "▸"; position: absolute; left: 6px; color: var(--accent); font-weight: 700; }
+        .normas .item strong { color: var(--ink); font-weight: 600; display: block; margin-bottom: 2px; }
+        .normas .alert { margin-top: 14px; padding: 10px 12px; background: #fdf6e3; border-left: 3px solid var(--warn); border-radius: 3px; font-size: 11px; }
+
+        .footer { padding: 16px 24px; background: var(--paper-warm); text-align: center; font-size: 11px; color: var(--ink-soft); letter-spacing: .04em; }
+
+        .loader { display: flex; align-items: center; justify-content: center; min-height: 50vh; gap: 10px; color: var(--ink-soft); }
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(26,29,31,.15); border-top-color: var(--ink); border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .erro-box { padding: 40px 24px; text-align: center; }
+        .erro-box .icon { font-family: 'Fraunces', serif; font-size: 48px; color: var(--err); margin-bottom: 12px; }
+        .erro-box h2 { font-family: 'Fraunces', serif; margin: 0 0 8px; }
+        .erro-box p { color: var(--ink-soft); font-size: 13px; margin: 0; }
+
+        #app { display: none; }
+        #app.show { display: block; }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; max-width: 100%; }
+            .save-buttons, .endereco .maps-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loader" class="loader">
+    <div class="spinner"></div>
+    <span>Carregando credencial...</span>
+</div>
+
+<div id="app" class="card">
+    <div class="header">
+        <div class="eyebrow">Credencial de Acesso</div>
+        <h1 id="empresaNome">Portaria</h1>
+        <div class="id" id="credId">—</div>
+    </div>
+
+    <div class="status-bar" id="statusBar">—</div>
+
+    <div class="qr-section">
+        <div class="qr-frame"><div id="qrcode"></div></div>
+        <div class="qr-code" id="qrCode">—</div>
+        <div class="qr-hint">Apresente este QR Code na portaria</div>
+    </div>
+
+    <div class="save-buttons">
+        <button class="primary" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
+        <button onclick="baixarQR()">⬇ Baixar QR</button>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Dados da visita</div>
+        <dl class="info-grid" id="dadosVisita"></dl>
+    </div>
+
+    <div class="section" id="secVeiculo" style="display:none;">
+        <div class="section-title">🚗 Veículo cadastrado</div>
+        <div class="veiculo">
+            <div class="placa" id="vPlaca">—</div>
+            <div class="desc" id="vDesc">—</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📍 Endereço da visita</div>
+        <div class="endereco">
+            <div class="rua">R. Ilnah Pacheco Secundino de Oliveira, 160</div>
+            <div class="complemento">Cidade Industrial de Curitiba (CIC)</div>
+            <div class="complemento">Curitiba - PR · CEP 81460-032</div>
+            <a class="maps-btn" id="mapsBtn" target="_blank" rel="noopener">🗺 Abrir no Google Maps</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Normas de Segurança</div>
+        <div class="normas">
+            <div class="item"><strong>Identificação visual</strong>Abaixe totalmente os vidros e retire bonés, chapéus, óculos escuros ou capuzes ao se aproximar da portaria.</div>
+            <div class="item"><strong>Inspeção de veículos</strong>Permita vistoria de entrada e saída (porta-malas, caçambas, baús). Apresente documentação e nota fiscal quando solicitado.</div>
+            <div class="item"><strong>Uso de EPIs</strong>Em áreas operacionais, é obrigatório o uso de Equipamentos de Proteção Individual (botas, colete reflexivo), conforme NR-12.</div>
+            <div class="item"><strong>Itens restritos</strong>Proibido portar armas, bebidas alcoólicas, drogas ou realizar gravações não autorizadas.</div>
+            <div class="item"><strong>Estacionamento e circulação</strong>Estacione apenas no local indicado. Velocidade máxima de 20 km/h no perímetro.</div>
+            <div class="item"><strong>Acompanhamento</strong>Permaneça junto ao anfitrião responsável e não circule por áreas não autorizadas.</div>
+            <div class="alert"><strong>Atenção:</strong> Ambiente monitorado por câmeras 24h. O descumprimento das normas implica em revogação imediata do acesso.</div>
+        </div>
+    </div>
+
+    <div class="footer">Sistema de Controle de Portaria · Mensagem automática</div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+
+    const EMPRESA = {
+        nome: "Unidade Industrial / Galpão (CIC)",
+        mapsUrl: "https://www.google.com/maps/search/?api=1&query=" +
+                 encodeURIComponent("R. Ilnah Pacheco Secundino de Oliveira, 160 - Cidade Industrial de Curitiba, Curitiba - PR, 81460-032")
+    };
+
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let dadosCredencial = null;
+
+    // Pega o código do QR pela URL (?qr=PRT-xxxx)
+    const params = new URLSearchParams(window.location.search);
+    const qrToken = params.get("qr");
+
+    document.getElementById("empresaNome").textContent = EMPRESA.nome;
+    document.getElementById("mapsBtn").href = EMPRESA.mapsUrl;
+
+    (async function init() {
+        if (!qrToken) return mostrarErro("Link inválido", "Nenhum código de credencial foi informado.");
+
+        try {
+            const { data, error } = await banco.rpc("ver_credencial", { qr_token: qrToken });
+            if (error) throw error;
+            if (!data || !data.length) return mostrarErro("Credencial não encontrada", "Verifique se o link está completo ou contate quem agendou sua visita.");
+
+            dadosCredencial = data[0];
+            renderCredencial(dadosCredencial);
+        } catch (e) {
+            console.error(e);
+            mostrarErro("Erro ao carregar", e.message || "Tente novamente em alguns instantes.");
+        }
+    })();
+
+    function renderCredencial(d) {
+        // Status bar
+        const status = d.status_efetivo || d.status_acesso;
+        const icons = { AGENDADO: "📅", LIBERADO: "✅", ENCERRADO: "🏁", EXPIRADO: "⏰", CANCELADO: "⛔" };
+        const labels = { AGENDADO: "Agendado · Aguardando chegada", LIBERADO: "Liberado · No local", ENCERRADO: "Visita encerrada", EXPIRADO: "Expirado", CANCELADO: "Cancelado" };
+        const statusBar = document.getElementById("statusBar");
+        statusBar.className = "status-bar " + status;
+        statusBar.innerHTML = `<span class="icon">${icons[status] || ""}</span>${labels[status] || status}`;
+
+        // ID
+        document.getElementById("credId").textContent = "#" + String(d.id_acesso).padStart(6, "0");
+        document.getElementById("qrCode").textContent = d.codigo_qr;
+
+        // QR: tenta usar a imagem salva no banco; se não, gera localmente
+        const qrDiv = document.getElementById("qrcode");
+        qrDiv.innerHTML = "";
+        if (d.qr_image_base64) {
+            const img = document.createElement("img");
+            img.src = d.qr_image_base64;
+            img.alt = "QR Code de acesso";
+            qrDiv.appendChild(img);
+        } else if (typeof QRCode !== "undefined") {
+            new QRCode(qrDiv, {
+                text: d.codigo_qr,
+                width: 220, height: 220,
+                colorDark: "#1a1d1f", colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        // Dados da visita
+        const niveis = { 1: "Operacional", 2: "Restrito", 3: "Crítico" };
+        const validadeFmt = new Date(d.valido_ate).toLocaleString("pt-BR", {
+            day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        document.getElementById("dadosVisita").innerHTML = `
+            <dt>Visitante</dt><dd>${escapeHtml(d.nome_completo)}</dd>
+            <dt>Tipo</dt><dd>${escapeHtml(d.tipo_visitante)}</dd>
+            ${d.empresa_origem ? `<dt>Empresa</dt><dd>${escapeHtml(d.empresa_origem)}</dd>` : ""}
+            <dt>Setor</dt><dd>${escapeHtml(d.setor_visitado)}</dd>
+            <dt>Nível</dt><dd>${d.nivel_seguranca} · ${niveis[d.nivel_seguranca]}</dd>
+            <dt>Válido até</dt><dd>${validadeFmt}</dd>
+        `;
+
+        // Veículo
+        if (d.veiculo_placa || d.veiculo_modelo) {
+            const tiposVeic = { CARRO: "Carro", MOTO: "Moto", CAMINHAO: "Caminhão", VAN: "Van", UTILITARIO: "Utilitário", OUTRO: "Outro" };
+            const partes = [];
+            if (d.veiculo_tipo) partes.push(tiposVeic[d.veiculo_tipo] || d.veiculo_tipo);
+            if (d.veiculo_modelo) partes.push(d.veiculo_modelo);
+            if (d.veiculo_cor) partes.push(d.veiculo_cor);
+            document.getElementById("vPlaca").textContent = d.veiculo_placa || "—";
+            document.getElementById("vDesc").textContent = partes.join(" · ") || "—";
+            document.getElementById("secVeiculo").style.display = "block";
+        }
+
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("app").classList.add("show");
+    }
+
+    function baixarQR() {
+        if (!dadosCredencial) return;
+        let dataUrl = dadosCredencial.qr_image_base64;
+        if (!dataUrl) {
+            const canvas = document.querySelector("#qrcode canvas");
+            if (canvas) dataUrl = canvas.toDataURL("image/png");
+        }
+        if (!dataUrl) return alert("QR Code não disponível.");
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `credencial-${dadosCredencial.codigo_qr}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function mostrarErro(titulo, msg) {
+        document.getElementById("loader").style.display = "none";
+        const app = document.getElementById("app");
+        app.innerHTML = `
+            <div class="header"><h1>${escapeHtml(titulo)}</h1></div>
+            <div class="erro-box">
+                <div class="icon">⊘</div>
+                <h2>Não foi possível exibir</h2>
+                <p>${escapeHtml(msg)}</p>
+            </div>
+            <div class="footer">Sistema de Controle de Portaria</div>
+        `;
+        app.classList.add("show");
+    }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+</script>
+</body>
+</html>

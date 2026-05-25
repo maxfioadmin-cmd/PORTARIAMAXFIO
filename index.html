@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Portaria · Início</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c; --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 32px 16px; background-image: radial-gradient(circle at 20% 10%, rgba(200,85,61,.04) 0%, transparent 40%), radial-gradient(circle at 80% 90%, rgba(45,106,79,.04) 0%, transparent 40%); }
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* ===== HEADER ===== */
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-mark { width: 44px; height: 44px; background: var(--ink); color: var(--paper); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; position: relative; }
+        .logo-mark::after { content: ""; position: absolute; bottom: -3px; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: 0 0 4px 4px; }
+        .logo-text { line-height: 1.1; }
+        .logo-text .eyebrow { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+        .logo-text .name { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 500; }
+
+        .user-bar { display: flex; align-items: center; gap: 14px; }
+        .user-info { text-align: right; font-size: 12px; }
+        .user-info .nome { font-weight: 600; color: var(--ink); }
+        .user-info .papel { color: var(--ink-soft); font-size: 11px; }
+        .user-info .papel .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-left: 4px; }
+        .user-info .papel .pill.ADMIN { background: #fbeeee; color: var(--accent); }
+        .user-info .papel .pill.OPERADOR { background: #eef2fb; color: var(--info); }
+        .user-info .papel .pill.PORTEIRO { background: #eef6f1; color: var(--ok); }
+        .btn-logout { background: #fff; border: 1px solid var(--line); padding: 8px 14px; border-radius: 3px; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer; font-weight: 500; }
+        .btn-logout:hover { background: var(--paper-warm); border-color: var(--ink); }
+
+        /* ===== HERO ===== */
+        .hero { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 32px; margin-bottom: 24px; position: relative; box-shadow: 0 1px 2px rgba(26,29,31,.04), 0 8px 24px rgba(26,29,31,.06); overflow: hidden; }
+        .hero::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--ink); }
+        .hero-grid { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; }
+        .hero h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 36px; line-height: 1.1; margin: 0 0 8px; letter-spacing: -.02em; }
+        .hero .saudacao { font-size: 14px; color: var(--ink-soft); }
+        .hero .data-hora { text-align: right; font-size: 12px; color: var(--ink-soft); }
+        .hero .data-hora .hora { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 500; color: var(--ink); display: block; line-height: 1; }
+        .hero .data-hora .data { margin-top: 4px; text-transform: capitalize; }
+
+        /* ===== STATS ===== */
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+        .stat-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 18px; position: relative; overflow: hidden; }
+        .stat-card::before { content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+        .stat-card.info::before { background: var(--info); }
+        .stat-card.ok::before { background: var(--ok); }
+        .stat-card.neutral::before { background: var(--ink-soft); }
+        .stat-card.warn::before { background: var(--warn); }
+        .stat-card .label { font-size: 10px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+        .stat-card .value { font-family: 'Fraunces', serif; font-size: 36px; font-weight: 500; margin-top: 6px; line-height: 1; }
+        .stat-card .sub { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+        .stat-card.info .value { color: var(--info); }
+        .stat-card.ok .value { color: var(--ok); }
+        .stat-card.neutral .value { color: var(--ink); }
+        .stat-card.warn .value { color: var(--warn); }
+
+        /* ===== MÓDULOS (CARDS DE NAVEGAÇÃO) ===== */
+        .modulos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+        .modulo { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 20px; text-decoration: none; color: var(--ink); transition: transform .15s, box-shadow .15s, border-color .15s; display: block; position: relative; overflow: hidden; }
+        .modulo:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,29,31,.08); border-color: var(--ink); }
+        .modulo .icon { width: 40px; height: 40px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+        .modulo.agendar .icon { background: #eef2fb; color: var(--info); }
+        .modulo.scanner .icon { background: #fdf6e3; color: var(--warn); }
+        .modulo.painel .icon { background: #eef6f1; color: var(--ok); }
+        .modulo.admin .icon { background: #fbeeee; color: var(--accent); }
+        .modulo h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0 0 4px; }
+        .modulo p { font-size: 12px; color: var(--ink-soft); margin: 0; line-height: 1.45; }
+        .modulo .arrow { position: absolute; top: 20px; right: 20px; font-size: 14px; color: var(--ink-soft); transition: transform .15s; }
+        .modulo:hover .arrow { transform: translateX(3px); color: var(--ink); }
+        .modulo.disabled { opacity: .5; pointer-events: none; }
+        .modulo.disabled::after { content: "Sem permissão"; position: absolute; top: 18px; right: 18px; font-size: 10px; background: var(--paper-warm); padding: 2px 8px; border-radius: 99px; color: var(--ink-soft); font-weight: 600; letter-spacing: .04em; }
+
+        /* ===== PRÓXIMAS VISITAS ===== */
+        .panel { background: #fff; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+        .panel-head { padding: 18px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--paper-warm); }
+        .panel-head h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; margin: 0; }
+        .panel-head .sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+        .panel-head .right { font-size: 11px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+        .panel-head .right .live { width: 6px; height: 6px; background: var(--ok); border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+        .lista { padding: 0; }
+        .visita { display: grid; grid-template-columns: auto 1fr auto auto; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--line); align-items: center; transition: background .15s; }
+        .visita:last-child { border-bottom: none; }
+        .visita:hover { background: #fbfaf6; }
+
+        .visita-tempo { text-align: center; min-width: 64px; }
+        .visita-tempo .hora { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; line-height: 1; color: var(--ink); }
+        .visita-tempo .dia { font-size: 10px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; font-weight: 600; }
+        .visita-tempo.hoje .hora { color: var(--accent); }
+        .visita-tempo.passou .hora { color: var(--ink-soft); }
+
+        .visita-info .nome { font-weight: 600; font-size: 14px; }
+        .visita-info .detalhes { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+        .visita-info .detalhes span + span::before { content: " · "; }
+
+        .visita-setor { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+
+        .visita-status .pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+        .pill.AGENDADO { background: #eef2fb; color: var(--info); }
+        .pill.LIBERADO { background: #eef6f1; color: var(--ok); }
+        .pill.ENCERRADO { background: #f0eee9; color: var(--ink-soft); }
+        .pill.EXPIRADO { background: #fdf6e3; color: var(--warn); }
+
+        .empty { text-align: center; padding: 48px 24px; color: var(--ink-soft); font-size: 13px; }
+        .empty .icon { font-family: 'Fraunces', serif; font-size: 48px; color: var(--line); margin-bottom: 8px; }
+
+        /* ===== LOGIN ===== */
+        .login-wrap { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 64px); }
+        .login-card { max-width: 380px; width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgba(26,29,31,.04), 0 8px 24px rgba(26,29,31,.06); }
+        .login-header { padding: 32px 32px 24px; border-bottom: 1px solid var(--line); background: var(--paper-warm); position: relative; text-align: center; }
+        .login-header::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--ink); }
+        .login-icon { width: 56px; height: 56px; margin: 0 auto 14px; background: var(--ink); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--paper); font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; position: relative; }
+        .login-icon::after { content: ""; position: absolute; bottom: -3px; left: 0; right: 0; height: 3px; background: var(--accent); border-radius: 0 0 6px 6px; }
+        .login-card h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; }
+        .login-card .sub { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+        .login-body { padding: 28px 32px; }
+        .login-body label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+        .login-body input { width: 100%; padding: 11px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 3px; margin-bottom: 16px; }
+        .login-body input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        .login-body button { width: 100%; padding: 14px 20px; background: var(--ink); color: var(--paper); border: none; border-radius: 3px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .login-body button:hover:not(:disabled) { background: #000; }
+        .login-body button:disabled { opacity: .6; cursor: not-allowed; }
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(247,245,240,.3); border-top-color: var(--paper); border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+        button.loading .spinner { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status { padding: 12px 14px; border-radius: 3px; font-size: 13px; display: none; margin: 16px 0 0; }
+        .status.show { display: block; }
+        .status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
+        .status.ok { background: #eef6f1; color: var(--ok); border-left: 3px solid var(--ok); }
+
+        .foot-credit { text-align: center; padding: 24px 16px; font-size: 11px; color: var(--ink-soft); letter-spacing: .04em; }
+
+        #app { display: none; }
+        #app.show { display: block; }
+        #loginView { display: none; }
+        #loginView.show { display: block; }
+        #bootLoader { display: flex; align-items: center; justify-content: center; min-height: 50vh; color: var(--ink-soft); font-size: 13px; gap: 10px; }
+        #bootLoader .spinner { display: block; border-color: rgba(26,29,31,.15); border-top-color: var(--ink); }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .user-bar { justify-content: space-between; }
+            .hero { padding: 24px 20px; }
+            .hero-grid { grid-template-columns: 1fr; gap: 12px; }
+            .hero h1 { font-size: 26px; }
+            .hero .data-hora { text-align: left; }
+            .hero .data-hora .hora { font-size: 24px; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .modulos { grid-template-columns: repeat(2, 1fr); }
+            .panel-head { padding: 16px 18px; }
+            .visita { grid-template-columns: auto 1fr auto; padding: 14px 18px; gap: 12px; }
+            .visita-setor { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="bootLoader"><div class="spinner"></div><span>Verificando sessão...</span></div>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-wrap">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">P</div>
+            <h2>Controle de Portaria</h2>
+            <div class="sub">Acesso ao sistema</div>
+        </div>
+        <div class="login-body">
+            <form id="formLogin" autocomplete="off" novalidate>
+                <label>E-mail</label>
+                <input type="email" id="loginEmail" autocomplete="username" required>
+                <label>Senha</label>
+                <input type="password" id="loginSenha" autocomplete="current-password" required>
+                <button type="submit" id="btnLogin">
+                    <span class="spinner"></span>
+                    <span>Entrar</span>
+                </button>
+                <div id="loginStatus" class="status"></div>
+            </form>
+        </div>
+        <div class="foot-credit">Uso restrito · Acesso monitorado</div>
+    </div>
+</div>
+
+<!-- APP -->
+<main id="app" class="container">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <div class="logo">
+            <div class="logo-mark">P</div>
+            <div class="logo-text">
+                <div class="eyebrow">Sistema</div>
+                <div class="name">Controle de Portaria</div>
+            </div>
+        </div>
+        <div class="user-bar">
+            <div class="user-info">
+                <div class="nome" id="userNome">—</div>
+                <div class="papel">
+                    <span id="userEmail">—</span>
+                    <span class="pill" id="userPapel">—</span>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="logout()">Sair</button>
+        </div>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-grid">
+            <div>
+                <h1 id="saudacao">Boa tarde</h1>
+                <div class="saudacao" id="saudacaoSub">Bem-vindo(a) de volta.</div>
+            </div>
+            <div class="data-hora">
+                <span class="hora" id="horaAgora">--:--</span>
+                <span class="data" id="dataAgora">—</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats">
+        <div class="stat-card info">
+            <div class="label">Hoje · Agendados</div>
+            <div class="value" id="statHoje">—</div>
+            <div class="sub">visitas previstas</div>
+        </div>
+        <div class="stat-card ok">
+            <div class="label">No local agora</div>
+            <div class="value" id="statLiberados">—</div>
+            <div class="sub">visitantes liberados</div>
+        </div>
+        <div class="stat-card neutral">
+            <div class="label">Próximos 7 dias</div>
+            <div class="value" id="statSemana">—</div>
+            <div class="sub">agendamentos futuros</div>
+        </div>
+        <div class="stat-card warn">
+            <div class="label">Expirados pendentes</div>
+            <div class="value" id="statExpirados">—</div>
+            <div class="sub">não compareceram</div>
+        </div>
+    </section>
+
+    <!-- MÓDULOS -->
+    <section class="modulos">
+        <a href="portaria-agendamento.html" class="modulo agendar" id="modAgendar">
+            <span class="arrow">→</span>
+            <div class="icon">+</div>
+            <h3>Novo agendamento</h3>
+            <p>Cadastrar visitante, gerar QR Code e imprimir credencial.</p>
+        </a>
+        <a href="portaria-scanner.html" class="modulo scanner" id="modScanner">
+            <span class="arrow">→</span>
+            <div class="icon">📷</div>
+            <h3>Scanner / Liberação</h3>
+            <p>Ler QR Code do visitante na chegada e liberar a entrada.</p>
+        </a>
+        <a href="portaria-painel.html" class="modulo painel" id="modPainel">
+            <span class="arrow">→</span>
+            <div class="icon">≡</div>
+            <h3>Painel de visitas</h3>
+            <p>Liberar entradas, registrar saídas e consultar histórico completo.</p>
+        </a>
+        <a href="portaria-admin.html" class="modulo admin" id="modAdmin">
+            <span class="arrow">→</span>
+            <div class="icon">⚙</div>
+            <h3>Administração</h3>
+            <p>Cadastrar operadores, definir papéis e gerenciar permissões.</p>
+        </a>
+    </section>
+
+    <!-- PRÓXIMAS VISITAS -->
+    <section class="panel">
+        <div class="panel-head">
+            <div>
+                <h2>Próximas visitas</h2>
+                <div class="sub">Agendamentos para hoje e amanhã (somente visualização)</div>
+            </div>
+            <div class="right">
+                <span class="live"></span>
+                <span>Atualização automática</span>
+            </div>
+        </div>
+        <div class="lista" id="listaVisitas">
+            <div class="empty"><div class="icon">∅</div>Carregando...</div>
+        </div>
+    </section>
+
+    <div class="foot-credit" style="display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span>📍 R. Ilnah Pacheco Secundino de Oliveira, 160 · Cidade Industrial de Curitiba (CIC) · CEP 81460-032</span>
+        <span>·</span>
+        <a href="https://www.google.com/maps/search/?api=1&query=R.%20Ilnah%20Pacheco%20Secundino%20de%20Oliveira%2C%20160%20-%20Cidade%20Industrial%20de%20Curitiba%2C%20Curitiba%20-%20PR%2C%2081460-032" target="_blank" rel="noopener" style="color:var(--info);text-decoration:none;font-weight:600;">Abrir no Maps →</a>
+    </div>
+    <div class="foot-credit" style="padding-top:0;">Sistema interno · Sessão ativa monitorada</div>
+</main>
+
+<script>
+    // ============================================================
+    // CONFIGURAÇÃO — SUBSTITUA pelas suas credenciais REAIS
+    // ============================================================
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    let intervalAtualizacao = null;
+    let perfilAtual = null;
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    (async function init() {
+        if (SUPABASE_URL.includes("SEU-PROJETO")) {
+            document.getElementById("bootLoader").innerHTML =
+                '<div style="color:var(--err);text-align:center;padding:20px;">⚠ Configure SUPABASE_URL e SUPABASE_ANON_KEY no script.</div>';
+            return;
+        }
+        const { data: { session } } = await banco.auth.getSession();
+        if (session) mostrarApp(session.user);
+        else mostrarLogin();
+    })();
+
+    banco.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" && session) mostrarApp(session.user);
+        if (event === "SIGNED_OUT") mostrarLogin();
+    });
+
+    function mostrarLogin() {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("app").classList.remove("show");
+        document.getElementById("loginView").classList.add("show");
+        document.getElementById("loginEmail").focus();
+        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
+    }
+
+    async function mostrarApp(user) {
+        document.getElementById("bootLoader").style.display = "none";
+        document.getElementById("loginView").classList.remove("show");
+        document.getElementById("app").classList.add("show");
+        document.getElementById("userEmail").textContent = user.email;
+
+        // Busca perfil
+        try {
+            const { data: perfil } = await banco
+                .from("perfis_operadores")
+                .select("nome, papel, ativo")
+                .eq("id", user.id).single();
+            if (perfil) {
+                perfilAtual = perfil;
+                document.getElementById("userNome").textContent = perfil.nome || user.email.split("@")[0];
+                const pill = document.getElementById("userPapel");
+                pill.textContent = perfil.papel;
+                pill.className = `pill ${perfil.papel}`;
+
+                // Esconde módulo admin se não for ADMIN
+                if (perfil.papel !== "ADMIN") {
+                    document.getElementById("modAdmin").classList.add("disabled");
+                }
+            } else {
+                document.getElementById("userNome").textContent = user.email.split("@")[0];
+                document.getElementById("modAdmin").classList.add("disabled");
+            }
+        } catch (e) {
+            console.warn("Perfil não encontrado", e);
+            document.getElementById("userNome").textContent = user.email.split("@")[0];
+            document.getElementById("modAdmin").classList.add("disabled");
+        }
+
+        atualizarSaudacao();
+        atualizarHora();
+        await carregarDados();
+
+        // Auto-refresh
+        if (intervalAtualizacao) clearInterval(intervalAtualizacao);
+        intervalAtualizacao = setInterval(() => {
+            atualizarHora();
+            carregarDados();
+        }, 30000);
+    }
+
+    // ============================================================
+    // LOGIN
+    // ============================================================
+    document.getElementById("formLogin").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("loginEmail").value.trim();
+        const senha = document.getElementById("loginSenha").value;
+        const btn = document.getElementById("btnLogin");
+        const st = document.getElementById("loginStatus");
+        if (!email || !senha) {
+            st.className = "status show err";
+            st.textContent = "Informe e-mail e senha.";
+            return;
+        }
+        btn.disabled = true; btn.classList.add("loading"); st.className = "status";
+        try {
+            const { error } = await banco.auth.signInWithPassword({ email, password: senha });
+            if (error) throw error;
+        } catch (error) {
+            st.className = "status show err";
+            st.textContent = error.message === "Invalid login credentials"
+                ? "E-mail ou senha incorretos." : error.message;
+        } finally {
+            btn.disabled = false; btn.classList.remove("loading");
+        }
+    });
+
+    async function logout() {
+        if (!confirm("Deseja realmente sair?")) return;
+        await banco.auth.signOut();
+    }
+
+    // ============================================================
+    // HORA E SAUDAÇÃO
+    // ============================================================
+    function atualizarHora() {
+        const agora = new Date();
+        document.getElementById("horaAgora").textContent =
+            agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        document.getElementById("dataAgora").textContent =
+            agora.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    }
+
+    function atualizarSaudacao() {
+        const h = new Date().getHours();
+        let saud;
+        if (h < 5) saud = "Boa madrugada";
+        else if (h < 12) saud = "Bom dia";
+        else if (h < 18) saud = "Boa tarde";
+        else saud = "Boa noite";
+        const nome = perfilAtual?.nome ? perfilAtual.nome.split(" ")[0] : "";
+        document.getElementById("saudacao").textContent = saud + (nome ? ", " + nome : "");
+    }
+
+    // ============================================================
+    // CARREGAR DADOS
+    // ============================================================
+    async function carregarDados() {
+        try {
+            const agora = new Date();
+            const inicioHoje = new Date(agora); inicioHoje.setHours(0,0,0,0);
+            const fimHoje = new Date(agora); fimHoje.setHours(23,59,59,999);
+            const fimSemana = new Date(agora); fimSemana.setDate(fimSemana.getDate() + 7); fimSemana.setHours(23,59,59,999);
+            const fimAmanha = new Date(agora); fimAmanha.setDate(fimAmanha.getDate() + 1); fimAmanha.setHours(23,59,59,999);
+
+            // Busca tudo de hoje + futuros até 7 dias
+            const { data, error } = await banco
+                .from("vw_acessos_completo")
+                .select("*")
+                .gte("valido_ate", inicioHoje.toISOString())
+                .lte("valido_ate", fimSemana.toISOString())
+                .order("valido_ate", { ascending: true })
+                .limit(200);
+            if (error) throw error;
+
+            const dados = data || [];
+
+            // Stats
+            const hoje = dados.filter(d =>
+                d.status_acesso === "AGENDADO" &&
+                new Date(d.valido_ate) >= inicioHoje &&
+                new Date(d.valido_ate) <= fimHoje
+            ).length;
+
+            const liberados = dados.filter(d => d.status_acesso === "LIBERADO").length;
+
+            const semana = dados.filter(d =>
+                d.status_acesso === "AGENDADO" &&
+                new Date(d.valido_ate) > fimHoje
+            ).length;
+
+            // Para expirados, precisamos buscar separadamente (pode estar fora da janela acima)
+            const { count: expCount } = await banco
+                .from("controle_acessos")
+                .select("*", { count: "exact", head: true })
+                .eq("status_acesso", "AGENDADO")
+                .lt("valido_ate", agora.toISOString());
+
+            document.getElementById("statHoje").textContent = hoje;
+            document.getElementById("statLiberados").textContent = liberados;
+            document.getElementById("statSemana").textContent = semana;
+            document.getElementById("statExpirados").textContent = expCount || 0;
+
+            // Lista: próximas visitas (hoje + amanhã, status AGENDADO ou LIBERADO)
+            const proximas = dados
+                .filter(d =>
+                    ["AGENDADO","LIBERADO"].includes(d.status_acesso) &&
+                    new Date(d.valido_ate) <= fimAmanha
+                )
+                .slice(0, 10);
+
+            renderProximas(proximas);
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById("listaVisitas").innerHTML =
+                `<div class="empty" style="color:var(--err);">Erro ao carregar: ${escapeHtml(error.message || "")}</div>`;
+        }
+    }
+
+    function renderProximas(visitas) {
+        const cont = document.getElementById("listaVisitas");
+        if (!visitas.length) {
+            cont.innerHTML = '<div class="empty"><div class="icon">∅</div>Nenhuma visita programada para hoje ou amanhã.</div>';
+            return;
+        }
+
+        const agora = new Date();
+        const inicioHoje = new Date(agora); inicioHoje.setHours(0,0,0,0);
+        const fimHoje = new Date(agora); fimHoje.setHours(23,59,59,999);
+
+        const html = visitas.map(v => {
+            const validade = new Date(v.valido_ate);
+            const hora = validade.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+            let tempoClasse = "";
+            let dia = "";
+            if (validade < agora && v.status_acesso === "AGENDADO") {
+                tempoClasse = "passou";
+                dia = "Atrasado";
+            } else if (validade >= inicioHoje && validade <= fimHoje) {
+                tempoClasse = "hoje";
+                dia = "Hoje";
+            } else {
+                dia = validade.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+            }
+
+            const status = v.status_acesso;
+            const niveis = { 1: "Op.", 2: "Restr.", 3: "Crít." };
+
+            return `
+                <div class="visita">
+                    <div class="visita-tempo ${tempoClasse}">
+                        <div class="hora">${hora}</div>
+                        <div class="dia">${dia}</div>
+                    </div>
+                    <div class="visita-info">
+                        <div class="nome">${escapeHtml(v.nome_completo)}</div>
+                        <div class="detalhes">
+                            <span>${escapeHtml(v.tipo_visitante)}</span>
+                            ${v.empresa_origem ? `<span>${escapeHtml(v.empresa_origem)}</span>` : ""}
+                            <span>Nível ${v.nivel_seguranca} · ${niveis[v.nivel_seguranca]}</span>
+                        </div>
+                    </div>
+                    <div class="visita-setor">${escapeHtml(v.setor_visitado)}</div>
+                    <div class="visita-status">
+                        <span class="pill ${status}">${status}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        cont.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/[&<>"']/g, c =>
+            ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+</script>
+</body>
+</html>
