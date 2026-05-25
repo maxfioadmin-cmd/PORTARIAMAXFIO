@@ -233,7 +233,22 @@
         document.getElementById("loginEmail").focus();
     }
 
-    function mostrarApp(user) {
+    async function mostrarApp(user) {
+        // Verifica troca de senha
+        try {
+            const { data: perfil } = await banco.from("perfis_operadores")
+                .select("ativo, deve_trocar_senha").eq("id", user.id).single();
+            if (perfil && perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html";
+                return;
+            }
+            if (perfil && perfil.ativo === false) {
+                alert("Sua conta está desativada. Contate o administrador.");
+                await banco.auth.signOut();
+                return;
+            }
+        } catch (e) { console.warn(e); }
+
         document.getElementById("bootLoader").style.display = "none";
         document.getElementById("loginView").classList.remove("show");
         document.getElementById("app").classList.add("show");

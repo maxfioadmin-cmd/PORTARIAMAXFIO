@@ -354,19 +354,33 @@
     }
 
     async function mostrarApp(user) {
-        document.getElementById("bootLoader").style.display = "none";
-        document.getElementById("loginView").classList.remove("show");
-        document.getElementById("app").classList.add("show");
-        document.getElementById("userEmail").textContent = user.email;
-
-        // Busca perfil
+        // Busca perfil PRIMEIRO para verificar troca de senha
         try {
             const { data: perfil } = await banco
                 .from("perfis_operadores")
-                .select("nome, papel, ativo")
+                .select("nome, papel, ativo, deve_trocar_senha")
                 .eq("id", user.id).single();
+
+            // Se precisa trocar senha, redireciona ANTES de mostrar app
+            if (perfil && perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html";
+                return;
+            }
+
+            // Se está inativo, bloqueia
+            if (perfil && perfil.ativo === false) {
+                alert("Sua conta está desativada. Contate o administrador.");
+                await banco.auth.signOut();
+                return;
+            }
+
+            perfilAtual = perfil;
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("loginView").classList.remove("show");
+            document.getElementById("app").classList.add("show");
+            document.getElementById("userEmail").textContent = user.email;
+
             if (perfil) {
-                perfilAtual = perfil;
                 document.getElementById("userNome").textContent = perfil.nome || user.email.split("@")[0];
                 const pill = document.getElementById("userPapel");
                 pill.textContent = perfil.papel;
@@ -382,6 +396,10 @@
             }
         } catch (e) {
             console.warn("Perfil não encontrado", e);
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("loginView").classList.remove("show");
+            document.getElementById("app").classList.add("show");
+            document.getElementById("userEmail").textContent = user.email;
             document.getElementById("userNome").textContent = user.email.split("@")[0];
             document.getElementById("modAdmin").classList.add("disabled");
         }

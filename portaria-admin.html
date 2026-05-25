@@ -258,7 +258,14 @@
     async function verificarPermissao(user) {
         try {
             const { data: perfil, error } = await banco
-                .from("perfis_operadores").select("papel, ativo").eq("id", user.id).single();
+                .from("perfis_operadores").select("papel, ativo, deve_trocar_senha").eq("id", user.id).single();
+
+            // Se precisa trocar senha, redireciona (mesmo para admin se estiver marcado)
+            if (perfil && perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html";
+                return;
+            }
+
             if (error || !perfil || perfil.papel !== "ADMIN" || !perfil.ativo) {
                 document.getElementById("bootLoader").style.display = "none";
                 document.getElementById("deniedView").classList.add("show");
@@ -356,7 +363,7 @@
             // Atualiza o perfil com o papel correto (o trigger já criou o registro)
             if (data.user) {
                 await banco.from("perfis_operadores")
-                    .update({ nome, papel })
+                    .update({ nome, papel, deve_trocar_senha: true })
                     .eq("id", data.user.id);
             }
 
@@ -391,10 +398,13 @@
                 const ultimoAcesso = op.last_sign_in_at
                     ? new Date(op.last_sign_in_at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })
                     : "Nunca";
+                const senhaPendente = op.deve_trocar_senha
+                    ? '<span style="font-size:10px;background:#fdf6e3;color:var(--warn);padding:1px 6px;border-radius:99px;font-weight:700;margin-left:6px;">🔐 Trocar senha</span>'
+                    : '';
                 return `
                     <tr>
                         <td>
-                            <div style="font-weight:600;">${escapeHtml(op.nome)}</div>
+                            <div style="font-weight:600;">${escapeHtml(op.nome)}${senhaPendente}</div>
                             <div style="font-size:11px;color:var(--ink-soft);">${escapeHtml(op.email)}</div>
                         </td>
                         <td>
@@ -405,11 +415,11 @@
                             </select>
                         </td>
                         <td><span class="pill ${op.ativo?"ativo":"inativo"}">${op.ativo?"Ativo":"Inativo"}</span></td>
-                        <td class="hide-mobile">${op.email_confirmado ? "✓ Sim" : "Pendente"}</td>
                         <td class="hide-mobile">${ultimoAcesso}</td>
                         <td>
                             <div class="row-actions">
                                 <button onclick="alternarAtivo('${op.id}', ${!op.ativo})">${op.ativo?"Desativar":"Ativar"}</button>
+                                <button onclick="forcarTrocaSenha('${op.id}', '${escapeHtml(op.nome)}')" title="Forçar troca no próximo login">🔐 Trocar</button>
                             </div>
                         </td>
                     </tr>
@@ -423,7 +433,6 @@
                             <th>Operador</th>
                             <th>Papel</th>
                             <th>Status</th>
-                            <th class="hide-mobile">E-mail confirmado</th>
                             <th class="hide-mobile">Último acesso</th>
                             <th>Ações</th>
                         </tr>
@@ -455,6 +464,17 @@
             const { error } = await banco.from("perfis_operadores").update({ ativo: novoAtivo }).eq("id", id);
             if (error) throw error;
             mostrarStatus(novoAtivo ? "Operador ativado." : "Operador desativado.", "ok");
+            await carregarOperadores();
+        } catch (e) { mostrarStatus("Erro: " + e.message, "err"); }
+    }
+
+    async function forcarTrocaSenha(id, nome) {
+        if (!confirm(`Forçar ${nome} a trocar a senha no próximo login?\n\nO usuário será redirecionado para a tela de troca de senha assim que entrar.`)) return;
+        try {
+            const { error } = await banco.from("perfis_operadores")
+                .update({ deve_trocar_senha: true }).eq("id", id);
+            if (error) throw error;
+            mostrarStatus("Solicitação registrada. " + nome + " será obrigado a trocar a senha no próximo login.", "ok");
             await carregarOperadores();
         } catch (e) { mostrarStatus("Erro: " + e.message, "err"); }
     }

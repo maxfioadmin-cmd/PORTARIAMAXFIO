@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trocar Senha · Portaria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ink: #1a1d1f; --ink-soft: #4a5056;
+            --paper: #f7f5f0; --paper-warm: #efeae0;
+            --line: #d8d2c4; --accent: #c8553d;
+            --ok: #2d6a4f; --warn: #b8860b; --err: #9b2c2c; --info: #2c5e8f;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter Tight', sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+        body { padding: 32px 16px; background-image: radial-gradient(circle at 20% 10%, rgba(200,85,61,.05) 0%, transparent 50%); display: flex; align-items: center; justify-content: center; }
+
+        .card { max-width: 420px; width: 100%; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+
+        .header { padding: 28px 32px 24px; background: var(--paper-warm); border-bottom: 1px solid var(--line); text-align: center; position: relative; }
+        .header::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--warn); }
+        .icon-box { width: 56px; height: 56px; margin: 0 auto 14px; background: var(--warn); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26px; }
+        .header h1 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; letter-spacing: -.01em; }
+        .header p { font-size: 12px; color: var(--ink-soft); margin: 6px 0 0; }
+
+        .body { padding: 24px 32px; }
+
+        .alert { background: #fdf6e3; border-left: 3px solid var(--warn); padding: 12px 14px; border-radius: 3px; font-size: 12px; color: var(--ink); margin-bottom: 20px; line-height: 1.5; }
+        .alert strong { color: var(--warn); }
+        .alert .user { font-family: monospace; background: #fff; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); }
+
+        .field { margin-bottom: 16px; }
+        label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; }
+        input { width: 100%; padding: 12px 14px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 3px; }
+        input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(26,29,31,.08); }
+        input.invalid { border-color: var(--err); background: #fef5f5; }
+
+        .req-list { margin: 0 0 16px; padding: 12px 14px; background: var(--paper); border-radius: 3px; font-size: 11px; }
+        .req-list .req { display: flex; align-items: center; gap: 6px; margin: 4px 0; color: var(--ink-soft); }
+        .req-list .req.ok { color: var(--ok); }
+        .req-list .req .check { width: 14px; display: inline-block; text-align: center; font-weight: 700; }
+
+        button.primary { width: 100%; padding: 14px; background: var(--ink); color: var(--paper); border: none; border-radius: 3px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        button.primary:hover:not(:disabled) { background: #000; }
+        button.primary:disabled { opacity: .6; cursor: not-allowed; }
+        .spinner { width: 14px; height: 14px; border: 2px solid rgba(247,245,240,.3); border-top-color: var(--paper); border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+        button.loading .spinner { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status { padding: 10px 12px; border-radius: 3px; font-size: 12px; display: none; margin-top: 12px; }
+        .status.show { display: block; }
+        .status.err { background: #fbeeee; color: var(--err); border-left: 3px solid var(--err); }
+        .status.ok { background: #eef6f1; color: var(--ok); border-left: 3px solid var(--ok); }
+
+        .foot { padding: 14px 32px; background: #fbfaf6; border-top: 1px solid var(--line); text-align: center; font-size: 11px; color: var(--ink-soft); }
+
+        #app { display: none; }
+        #app.show { display: block; }
+        #loader { text-align: center; padding: 40px; color: var(--ink-soft); font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="loader">Verificando sessão...</div>
+
+    <div id="app">
+        <div class="header">
+            <div class="icon-box">🔐</div>
+            <h1>Trocar senha</h1>
+            <p>Primeira etapa antes de acessar o sistema</p>
+        </div>
+
+        <div class="body">
+            <div class="alert">
+                <strong>Atenção:</strong> Esta é sua primeira vez no sistema.<br>
+                Por segurança, troque a senha padrão antes de continuar.<br>
+                Usuário: <span class="user" id="userEmail">—</span>
+            </div>
+
+            <form id="formTroca" autocomplete="off" novalidate>
+                <div class="field">
+                    <label for="senhaAtual">Senha atual (provisória)</label>
+                    <input type="password" id="senhaAtual" autocomplete="current-password" required>
+                </div>
+
+                <div class="field">
+                    <label for="senhaNova">Nova senha</label>
+                    <input type="password" id="senhaNova" autocomplete="new-password" required>
+                </div>
+
+                <div class="req-list" id="reqList">
+                    <div class="req" data-req="len"><span class="check">○</span> Mínimo 8 caracteres</div>
+                    <div class="req" data-req="num"><span class="check">○</span> Pelo menos 1 número</div>
+                    <div class="req" data-req="letra"><span class="check">○</span> Pelo menos 1 letra</div>
+                    <div class="req" data-req="dif"><span class="check">○</span> Diferente da senha atual</div>
+                </div>
+
+                <div class="field">
+                    <label for="senhaConfirma">Confirmar nova senha</label>
+                    <input type="password" id="senhaConfirma" autocomplete="new-password" required>
+                </div>
+
+                <button type="submit" class="primary" id="btnTrocar">
+                    <span class="spinner"></span>
+                    <span>Trocar senha e entrar</span>
+                </button>
+
+                <div id="status" class="status"></div>
+            </form>
+        </div>
+
+        <div class="foot">Sistema de Controle de Portaria · Acesso seguro</div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://jqamhqcfsolnjwrqliol.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_oG-dsQaetzJFQGQV4s3FWw_k4q-kQdt";
+    const banco = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    let usuarioAtual = null;
+
+    (async function init() {
+        const { data: { session } } = await banco.auth.getSession();
+        if (!session) {
+            // Sem sessão, volta pro login
+            window.location.href = "index.html";
+            return;
+        }
+        usuarioAtual = session.user;
+        document.getElementById("userEmail").textContent = usuarioAtual.email;
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("app").classList.add("show");
+        document.getElementById("senhaAtual").focus();
+    })();
+
+    // Validação em tempo real
+    const inputs = {
+        atual: document.getElementById("senhaAtual"),
+        nova: document.getElementById("senhaNova"),
+        conf: document.getElementById("senhaConfirma")
+    };
+
+    function validarRequisitos() {
+        const nova = inputs.nova.value;
+        const atual = inputs.atual.value;
+        const reqs = {
+            len: nova.length >= 8,
+            num: /\d/.test(nova),
+            letra: /[a-zA-Z]/.test(nova),
+            dif: nova.length > 0 && nova !== atual
+        };
+        Object.entries(reqs).forEach(([k, ok]) => {
+            const el = document.querySelector(`.req[data-req="${k}"]`);
+            el.classList.toggle("ok", ok);
+            el.querySelector(".check").textContent = ok ? "✓" : "○";
+        });
+        return Object.values(reqs).every(v => v);
+    }
+
+    inputs.nova.addEventListener("input", validarRequisitos);
+    inputs.atual.addEventListener("input", validarRequisitos);
+
+    document.getElementById("formTroca").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const st = document.getElementById("status");
+        const btn = document.getElementById("btnTrocar");
+
+        const atual = inputs.atual.value;
+        const nova = inputs.nova.value;
+        const conf = inputs.conf.value;
+
+        st.className = "status";
+
+        if (!validarRequisitos()) {
+            st.className = "status show err";
+            st.textContent = "A nova senha não atende todos os requisitos.";
+            return;
+        }
+        if (nova !== conf) {
+            st.className = "status show err";
+            st.textContent = "A confirmação não confere com a nova senha.";
+            inputs.conf.classList.add("invalid");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.classList.add("loading");
+
+        try {
+            // 1. Reautentica com a senha atual (segurança extra)
+            const { error: errLogin } = await banco.auth.signInWithPassword({
+                email: usuarioAtual.email,
+                password: atual
+            });
+            if (errLogin) {
+                throw new Error("Senha atual incorreta.");
+            }
+
+            // 2. Troca a senha
+            const { error: errUpd } = await banco.auth.updateUser({ password: nova });
+            if (errUpd) throw errUpd;
+
+            // 3. Marca como senha já trocada
+            const { error: errPerfil } = await banco
+                .from("perfis_operadores")
+                .update({ deve_trocar_senha: false })
+                .eq("id", usuarioAtual.id);
+            if (errPerfil) {
+                // não bloqueia — apenas avisa
+                console.warn("Não foi possível atualizar perfil:", errPerfil);
+            }
+
+            st.className = "status show ok";
+            st.textContent = "✓ Senha alterada com sucesso. Redirecionando...";
+
+            setTimeout(() => {
+                window.location.href = "index.html";
+            }, 1500);
+
+        } catch (e) {
+            console.error(e);
+            st.className = "status show err";
+            st.textContent = "Erro: " + (e.message || JSON.stringify(e));
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove("loading");
+        }
+    });
+
+    inputs.conf.addEventListener("input", () => inputs.conf.classList.remove("invalid"));
+</script>
+
+</body>
+</html>

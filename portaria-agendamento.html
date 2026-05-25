@@ -451,19 +451,36 @@
     }
 
     async function mostrarApp(user) {
-        document.getElementById("bootLoader").style.display = "none";
-        document.getElementById("loginView").classList.remove("show");
-        document.getElementById("app").classList.add("show");
-        document.getElementById("userEmail").textContent = user.email;
-
-        // Mostra link Admin se for admin
+        // Verifica troca de senha PRIMEIRO
         try {
             const { data: perfil } = await banco
-                .from("perfis_operadores").select("papel").eq("id", user.id).single();
+                .from("perfis_operadores").select("papel, ativo, deve_trocar_senha").eq("id", user.id).single();
+
+            if (perfil && perfil.deve_trocar_senha === true) {
+                window.location.href = "trocar-senha.html";
+                return;
+            }
+            if (perfil && perfil.ativo === false) {
+                alert("Sua conta está desativada. Contate o administrador.");
+                await banco.auth.signOut();
+                return;
+            }
+
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("loginView").classList.remove("show");
+            document.getElementById("app").classList.add("show");
+            document.getElementById("userEmail").textContent = user.email;
+
             if (perfil && perfil.papel === "ADMIN") {
                 document.getElementById("linkAdmin").style.display = "inline-block";
             }
-        } catch (e) { console.log("Perfil não encontrado"); }
+        } catch (e) {
+            console.log("Perfil não encontrado", e);
+            document.getElementById("bootLoader").style.display = "none";
+            document.getElementById("loginView").classList.remove("show");
+            document.getElementById("app").classList.add("show");
+            document.getElementById("userEmail").textContent = user.email;
+        }
     }
 
     // ============================================================
